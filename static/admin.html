@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FF14 Party Planner — Admin</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+  .container { max-width: 1300px; margin: 0 auto; }
+  h1 { text-align: center; color: #f0c040; margin-bottom: 4px; }
+  .subtitle { text-align: center; color: #666; font-size: 0.85rem; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: #16213e; border: 1px solid #2a2a5a; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .card-title { color: #b0b0d0; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+  .person-card { background: #1a1a3e; border: 1px solid #2a2a5a; border-radius: 8px; padding: 8px 12px; margin-bottom: 4px; }
+  .person-name { font-size: 0.85rem; font-weight: 600; color: #c0c0e0; }
+  .person-jobs { font-size: 0.8rem; color: #888; margin-top: 2px; }
+  .pj { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.73rem; margin: 1px; font-weight: 500; }
+  .pj.tank { background: #1a3a6a; color: #6ab0ff; }
+  .pj.healer { background: #1a4a2a; color: #4ae88a; }
+  .pj.dps { background: #4a1a1a; color: #ff6b6b; }
+  .constraint-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid #222250; }
+  .constraint-row:last-child { border-bottom: none; }
+  .constraint-row label { flex: 1; cursor: pointer; font-size: 0.88rem; }
+  .constraint-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: #4a9eff; cursor: pointer; }
+  .constraint-row select { background: #1a1a3e; color: #e0e0e0; border: 1px solid #3a3a6a; border-radius: 4px; padding: 3px 6px; font-size: 0.85rem; }
+  .section-title { font-size: 0.78rem; color: #6060aa; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; }
+  .btn-group { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  .btn { padding: 8px 20px; border: none; border-radius: 8px; font-size: 0.9rem; cursor: pointer; font-weight: 600; }
+  .btn-primary { background: #4a9eff; color: #fff; }
+  .btn-primary:hover { background: #3a8eef; }
+  .btn-secondary { background: #2a2a5a; color: #a0a0c0; }
+  .btn-secondary:hover { background: #3a3a6a; }
+  .btn-success { background: #2ecc71; color: #fff; }
+  .btn-success:hover { background: #27ae60; }
+  .btn-sm { padding: 4px 14px; font-size: 0.8rem; }
+  .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .results-count { font-size: 0.85rem; color: #8888aa; }
+  .combinations-list { max-height: 600px; overflow-y: auto; }
+  .combo-card { background: #1a1a3e; border: 1px solid #2a2a5a; border-radius: 8px; padding: 8px 12px; margin-bottom: 5px; }
+  .combo-person { display: flex; align-items: center; gap: 6px; padding: 1px 0; font-size: 0.82rem; }
+  .combo-person .pname { color: #8888aa; min-width: 65px; font-size: 0.75rem; }
+  .combo-job { padding: 1px 6px; border-radius: 3px; font-size: 0.75rem; font-weight: 500; }
+  .combo-job.tank { background: #1a3a6a; color: #6ab0ff; }
+  .combo-job.healer { background: #1a4a2a; color: #4ae88a; }
+  .combo-job.dps { background: #4a1a1a; color: #ff6b6b; }
+  .empty-state { text-align: center; padding: 40px 20px; color: #666688; }
+  .status { padding: 8px 12px; border-radius: 6px; margin-top: 8px; display: none; }
+  .status.ok { display: block; background: #1a3a2a; border: 1px solid #2ecc71; color: #4ae88a; }
+  .status.err { display: block; background: #3a1a1a; border: 1px solid #e74c3c; color: #ff6b6b; }
+  textarea { width: 100%; background: #12122e; color: #e0e0e0; border: 1px solid #3a3a6a; border-radius: 6px; padding: 8px; font-family: monospace; font-size: 0.8rem; resize: vertical; }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: #1a1a2e; }
+  ::-webkit-scrollbar-thumb { background: #3a3a6a; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>FF14 Party Planner</h1>
+  <p class="subtitle">Admin page — configure everything, compute, export</p>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <div class="card-title">People from Discord</div>
+        <div id="people-display"><div class="empty-state"><p>Loading...</p></div></div>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-secondary" onclick="fetchPeople()">Refresh</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Manual JSON Input</div>
+        <p style="font-size:0.8rem;color:#888;margin-bottom:6px;">Paste an array of {name, jobs} objects:</p>
+        <textarea id="raw-json" rows="8">[
+  {"name":"Alice","jobs":["pld","drk","vpr","whm","sch","dnc"]},
+  {"name":"Bob","jobs":["war","gnb","ast","sge","brd","mch"]},
+  {"name":"Charlie","jobs":["mnk","drg","nin","sam","blm","rdm"]},
+  {"name":"Diana","jobs":["pld","whm","sge","dnc","pct","smn"]},
+  {"name":"Eve","jobs":["war","ast","sch","vpr","brd","blm"]},
+  {"name":"Frank","jobs":["drk","gnb","mnk","sam","mch","rdm"]},
+  {"name":"Grace","jobs":["whm","sch","ast","sge","pct","smn"]},
+  {"name":"Hank","jobs":["nin","vpr","drg","dnc","blm","rdm"]}
+]</textarea>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-success" onclick="postPeople()">POST People</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Constraints</div>
+        <div class="section-title">Structure</div>
+        <div class="constraint-row">
+          <input type="checkbox" id="c_std_comp" data-id="std_comp" checked>
+          <label for="c_std_comp">Standard comp (2 tanks, 2 healers, 4 DPS)</label>
+        </div>
+        <div class="constraint-row">
+          <input type="checkbox" id="c_no_dupes" data-id="no_dupes" checked>
+          <label for="c_no_dupes">No duplicate jobs</label>
+        </div>
+        <div class="section-title">Healers</div>
+        <div class="constraint-row">
+          <input type="checkbox" id="c_heal_mix" data-id="heal_mix">
+          <label for="c_heal_mix">1 pure + 1 shield healer</label>
+        </div>
+        <div class="section-title">DPS Sub-Roles (range)</div>
+        <div class="constraint-row">
+          <label>Max melee DPS</label>
+          <select id="c_max_melee" data-id="max_melee">
+            <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option>
+          </select>
+        </div>
+        <div class="constraint-row">
+          <label>Max phys ranged DPS</label>
+          <select id="c_max_pranged" data-id="max_pranged">
+            <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option>
+          </select>
+        </div>
+        <div class="constraint-row">
+          <label>Max caster DPS</label>
+          <select id="c_max_caster" data-id="max_caster">
+            <option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option>
+          </select>
+        </div>
+        <div class="constraint-row">
+          <label>Min melee DPS</label>
+          <select id="c_min_melee" data-id="min_melee">
+            <option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          </select>
+        </div>
+        <div class="constraint-row">
+          <label>Min phys ranged DPS</label>
+          <select id="c_min_pranged" data-id="min_pranged">
+            <option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          </select>
+        </div>
+        <div class="constraint-row">
+          <label>Min caster DPS</label>
+          <select id="c_min_caster" data-id="min_caster">
+            <option value="0" selected>0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+          </select>
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-success" onclick="saveAndCompute()">Save Constraints &amp; Compute</button>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="card-title">Results</div>
+        <div id="results"><div class="empty-state"><p>Seed some data, set constraints, compute.</p></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="status" class="status"></div>
+</div>
+
+<script>
+const JOBS_BY_ID = {
+  pld:{name:'PLD',role:'tank'},war:{name:'WAR',role:'tank'},drk:{name:'DRK',role:'tank'},gnb:{name:'GNB',role:'tank'},
+  whm:{name:'WHM',role:'healer'},sch:{name:'SCH',role:'healer'},ast:{name:'AST',role:'healer'},sge:{name:'SGE',role:'healer'},
+  mnk:{name:'MNK',role:'dps'},drg:{name:'DRG',role:'dps'},nin:{name:'NIN',role:'dps'},sam:{name:'SAM',role:'dps'},
+  vpr:{name:'VPR',role:'dps'},brd:{name:'BRD',role:'dps'},mch:{name:'MCH',role:'dps'},dnc:{name:'DNC',role:'dps'},
+  blm:{name:'BLM',role:'dps'},smn:{name:'SMN',role:'dps'},rdm:{name:'RDM',role:'dps'},pct:{name:'PCT',role:'dps'}
+};
+
+let _lastParties = [];
+
+async function fetchPeople() {
+  const r = await fetch('/api/people');
+  const data = await r.json();
+  const c = document.getElementById('people-display');
+  if (!data.length) { c.innerHTML = '<div class="empty-state"><p>No people yet.</p></div>'; return; }
+  let h = '';
+  for (const p of data) {
+    const tags = p.jobs.map(j => {
+      const info = JOBS_BY_ID[j];
+      return info ? `<span class="pj ${info.role}">${info.name}</span>` : `<span class="pj">${j}</span>`;
+    }).join(' ');
+    h += `<div class="person-card">
+      <div class="person-name">${p.name} <span style="color:#666;font-size:0.75rem">${p.jobs.length} jobs</span></div>
+      <div class="person-jobs">${tags}</div>
+    </div>`;
+  }
+  c.innerHTML = h;
+}
+
+async function postPeople() {
+  const raw = document.getElementById('raw-json').value;
+  let data;
+  try { data = JSON.parse(raw); } catch { showStatus('Invalid JSON', 'err'); return; }
+  const r = await fetch('/api/people', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+  });
+  if (r.ok) { showStatus('People saved!', 'ok'); fetchPeople(); }
+  else { showStatus('Failed to save', 'err'); }
+}
+
+async function fetchConstraints() {
+  const r = await fetch('/api/constraints');
+  const data = await r.json();
+  for (const [k, v] of Object.entries(data)) {
+    const el = document.getElementById('c_' + k);
+    if (!el) continue;
+    if (el.type === 'checkbox') el.checked = v;
+    else el.value = v;
+  }
+}
+
+function saveAndCompute() {
+  const data = {};
+  for (const el of document.querySelectorAll('[data-id]')) {
+    const val = el.type === 'checkbox' ? el.checked : parseInt(el.value);
+    data[el.getAttribute('data-id')] = val;
+  }
+  fetch('/api/constraints', {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+  }).then(r => {
+    if (r.ok) { showStatus('Constraints saved.', 'ok'); computeParties(); }
+    else { showStatus('Failed.', 'err'); }
+  });
+}
+
+async function computeParties() {
+  const r = await fetch('/api/compute', { method: 'POST' });
+  const result = await r.json();
+  const c = document.getElementById('results');
+  if (result.error) { c.innerHTML = `<div class="empty-state"><p>${result.error}</p></div>`; return; }
+  if (!result.count) { c.innerHTML = '<div class="empty-state"><p>No valid combinations.</p></div>'; return; }
+
+  const total = result.count;
+  const limit = result.parties.length;
+  const totalStr = total > limit ? `Showing first ${limit} of ${total.toLocaleString()}` : `${total.toLocaleString()} total`;
+
+  let h = `<div class="results-header">
+    <span class="results-count">${total.toLocaleString()} combinations (${totalStr})</span>
+    <button class="btn btn-sm btn-primary" onclick="exportTxt()">Export TXT</button>
+  </div><div class="combinations-list">`;
+
+  for (let i = 0; i < limit; i++) {
+    const party = result.parties[i];
+    h += `<div class="combo-card">
+      <div style="font-size:0.65rem;color:#666;margin-bottom:2px;">Party ${i + 1}</div>`;
+    for (const p of party) {
+      h += `<div class="combo-person">
+        <span class="pname">${p.name}</span>
+        <span class="combo-job ${p.role}">${p.job}</span>
+      </div>`;
+    }
+    h += `</div>`;
+  }
+  h += '</div>';
+  c.innerHTML = h;
+  _lastParties = result.parties;
+  showStatus(`Found ${total.toLocaleString()} valid party combinations.`, 'ok');
+}
+
+function exportTxt() {
+  if (!_lastParties.length) return;
+  const lines = _lastParties.map((party, i) => {
+    const parts = party.map(p => `${p.name}:${p.job}`);
+    return `Party ${i + 1}: ${parts.join(', ')}`;
+  });
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ff14-parties.txt';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status ' + type;
+}
+
+fetchPeople();
+fetchConstraints();
+</script>
+</body>
+</html>

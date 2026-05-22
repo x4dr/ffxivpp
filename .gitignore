@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+party.db
+.env
+.python-version
