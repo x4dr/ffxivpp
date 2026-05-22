@@ -130,6 +130,7 @@ async def roster(interaction: discord.Interaction) -> None:
 
 
 def main() -> None:
+    load_dotenv()
     token = os.environ.get("DISCORD_BOT_TOKEN")
     if not token:
         raise RuntimeError("Set DISCORD_BOT_TOKEN environment variable")
