@@ -149,7 +149,7 @@ def callback() -> Response:
         return make_response("OAuth state mismatch. Your session may have expired. "
                             "Please <a href='/auth/login'>log in again</a>.", 400)
     if check_access():
-        return redirect(url_for("api.admin"))  # type: ignore[return-value]
+        return redirect(url_for("api.dashboard"))  # type: ignore[return-value]
     return make_response("You are not authorized to access the Party Planner Dashboard.", 403)
 
 

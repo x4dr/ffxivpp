@@ -71,14 +71,10 @@ class PartyBot(discord.Client):
         if not os.environ.get("BASE_URL"):
             raise RuntimeError("BASE_URL environment variable must be set before starting the bot.")
         self.add_view(PersistentPartyView())
-        guild_id = os.environ.get("GUILD_ID")
-        if guild_id:
-            guild = discord.Object(id=int(guild_id))
-            await self.tree.sync()
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
-        else:
-            await self.tree.sync()
+
+        # Sync all commands globally
+        await self.tree.sync()
+
         self.loop.create_task(self.scraper_loop())
 
     async def scraper_loop(self) -> None:
@@ -594,8 +590,8 @@ class PersistentPartyView(View):
         base = os.environ.get("BASE_URL")
         if not base:
             raise RuntimeError("BASE_URL environment variable is not set.")
-        # Dashboard is a SPA; we link to the root admin panel
-        return f"{base.rstrip('/')}/admin"
+        # Dashboard is a SPA; we link to the root dashboard
+        return f"{base.rstrip('/')}/dashboard"
 
     async def update_embed(self, channel: discord.TextChannel, message: discord.Message) -> None:
         from app.db import constraints_from_db, get_cached_character, get_party_members

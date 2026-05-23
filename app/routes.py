@@ -361,7 +361,8 @@ def dashboard() -> Response:
 @bp.route("/party")
 @bp.route("/party/")
 def party_index() -> Response:
-    return make_response("Please specify a party name. Example: /party/my_party", 404)
+    from app.db import active_party_name
+    return send_from_directory(str(STATIC_DIR), "partydashboard.html")
 
 
 @bp.route("/party/<party_name>")
