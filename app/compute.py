@@ -2,9 +2,67 @@ from __future__ import annotations
 
 import time
 from collections.abc import Generator
+from dataclasses import dataclass
 from typing import Any
 
-from app.models import Assignment, Constraints, Job, Person
+
+@dataclass
+class Job:
+    id: str
+    name: str
+    role: str
+    sub: str
+    dps_type: str | None = None
+
+@dataclass
+class Person:
+    name: str
+    jobs: list[str]
+    discord_id: str | None = None
+
+@dataclass
+class Assignment:
+    name: str
+    job: str
+    role: str
+
+@dataclass
+class Constraints:
+    std_comp: bool = True
+    no_dupes: bool = True
+    heal_mix: bool = False
+    max_melee: int = 4
+    max_pranged: int = 4
+    max_caster: int = 4
+    min_melee: int = 0
+    min_pranged: int = 0
+    min_caster: int = 0
+    min_selfish: int = 0
+    max_selfish: int = 4
+    min_utility: int = 0
+    max_utility: int = 4
+    min_gear_level: int = 0
+    exclusions: list[list[str]] | None = None
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Constraints:
+        return cls(
+            std_comp=d.get("std_comp", True),
+            no_dupes=d.get("no_dupes", True),
+            heal_mix=d.get("heal_mix", False),
+            max_melee=d.get("max_melee", 4),
+            max_pranged=d.get("max_pranged", 4),
+            max_caster=d.get("max_caster", 4),
+            min_melee=d.get("min_melee", 0),
+            min_pranged=d.get("min_pranged", 0),
+            min_caster=d.get("min_caster", 0),
+            min_selfish=d.get("min_selfish", 0),
+            max_selfish=d.get("max_selfish", 4),
+            min_utility=d.get("min_utility", 0),
+            max_utility=d.get("max_utility", 4),
+            min_gear_level=d.get("min_gear_level", 0),
+            exclusions=d.get("exclusions", []),
+        )
+
 
 JOBS = [
     Job("pld", "PLD", "tank", "tank"),
@@ -74,7 +132,8 @@ def analyze_constraints(people: list[Person], constraints: Constraints) -> list[
     def get_count(role, sub=None, dps_type=None):
         return sum(
             1 for j in JOBS
-            if j.role == role and (not sub or j.sub == sub) and (not dps_type or j.dps_type == dps_type)
+            if j.role == role and (not sub or j.sub == sub)
+            and (not dps_type or j.dps_type == dps_type)
         )
 
     if c.min_melee > get_count('dps', sub='melee'):

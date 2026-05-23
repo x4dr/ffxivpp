@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from app.compute import compute_parties
-from app.models import Constraints, Person
+from app.compute import compute_parties, Constraints, Person
 
 
 def _p(name: str, *jobs: str) -> Person:

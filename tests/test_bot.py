@@ -83,5 +83,6 @@ def test_build_job_list_empty():
 
 def test_build_job_list_some():
     result = _build_job_list(["pld:7", "whm"])
-    assert "PLD[7]" in result
-    assert "WHM[5]" in result
+    assert "PLD" in result
+    assert "WHM" in result
+    assert "PLD/WHM" in result

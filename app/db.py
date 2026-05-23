@@ -1,540 +1,308 @@
-from __future__ import annotations
-
-import contextlib
-import json
-import logging
 import os
-import sqlite3
-import time
-from collections.abc import Generator
-from datetime import UTC
 from pathlib import Path
-from typing import Any, cast
-
-from flask import g, has_app_context
-
-# Configure basic logging for database duration tracking
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
-# Track connection start times by connection ID
-_conn_start_times: dict[int, float] = {}
+from typing import Any, Optional, cast
+from sqlalchemy import create_engine, event, select
+from sqlalchemy.orm import sessionmaker, scoped_session
+from app.models import Base, Party, Person, PartyPerson, AppState, LodestoneLink, CharacterCache, PartyConstraint, AdminRole, ScraperTask
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+DATABASE_URL = f"sqlite:///{os.environ.get('DATABASE_PATH', str(BASE_DIR / 'party.db'))}"
 
+engine = create_engine(
+    DATABASE_URL, 
+    connect_args={"check_same_thread": False},
+    echo=False
+)
 
-def _db_path() -> str:
-    return os.environ.get("DATABASE_PATH", str(BASE_DIR / "party.db"))
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
 
+session_factory = sessionmaker(bind=engine)
+Session = scoped_session(session_factory)
 
-def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(_db_path(), timeout=3)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    # Set busy timeout to 3 seconds
-    conn.execute("PRAGMA busy_timeout = 3000")
+def init_db():
+    Base.metadata.create_all(engine)
+    if not Session.query(Party).filter_by(name='Default').first():
+        Session.add(Party(name='Default'))
+        Session.commit()
 
-    # Store start time in global dictionary using connection ID as key
-    _conn_start_times[id(conn)] = time.time()
-    logger.debug(f"Database connection opened: {id(conn)}")
-    return conn
+def close_db(e: Any = None) -> None:
+    Session.remove()
 
-
-@contextlib.contextmanager
-def db_connection() -> Generator[sqlite3.Connection, None, None]:
-    conn = _connect()
+def add_role_id(guild_id: str, role_id: str) -> None:
     try:
-        yield conn
+        Session.add(AdminRole(guild_id=guild_id, role_id=role_id))
+        Session.commit()
     finally:
-        close_db(conn=conn)
+        Session.remove()
 
+def remove_role_id(guild_id: str, role_id: str) -> None:
+    try:
+        Session.query(AdminRole).filter_by(guild_id=guild_id, role_id=role_id).delete()
+        Session.commit()
+    finally:
+        Session.remove()
 
-def get_db() -> sqlite3.Connection:
-    if has_app_context():
-        if "db" not in g:
-            g.db = _connect()
-        return cast(sqlite3.Connection, g.db)
-    return _connect()
-
-
-def close_db(e: Any = None, conn: sqlite3.Connection | None = None) -> None:
-    if conn is not None:
-        start_time = _conn_start_times.pop(id(conn), time.time())
-        duration = time.time() - start_time
-        if duration > 1.0:
-            logger.warning(f"Database connection {id(conn)} held for {duration:.4f}s")
-        else:
-            logger.debug(f"Database connection {id(conn)} closed after {duration:.4f}s")
-        conn.close()
-        return
-
-    if has_app_context():
-        db = g.pop("db", None)
-        if db is not None:
-            db.close()
-            logger.debug("Flask DB connection closed")
-
-
-def _table_has_col(table: str, col: str) -> bool:
-    rows = cast(list[sqlite3.Row], get_db().execute(f"PRAGMA table_info({table!r})").fetchall())
-    return any(r["name"] == col for r in rows)
-
-
-def init_db() -> None:
-    with db_connection() as db:
-        db.executescript("""
-            CREATE TABLE IF NOT EXISTS parties (
-                name TEXT PRIMARY KEY
-            );
-            CREATE TABLE IF NOT EXISTS party_constraints (
-                party_name TEXT NOT NULL REFERENCES parties(name) ON DELETE CASCADE,
-                key TEXT NOT NULL,
-                value TEXT NOT NULL,
-                PRIMARY KEY (party_name, key)
-            );
-            CREATE TABLE IF NOT EXISTS party_exclusions (
-                party_name TEXT NOT NULL REFERENCES parties(name) ON DELETE CASCADE,
-                jobs TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS app_state (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS admin_roles (
-                guild_id TEXT NOT NULL,
-                role_id TEXT NOT NULL,
-                PRIMARY KEY (guild_id, role_id)
-            );
-            CREATE TABLE IF NOT EXISTS people (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT UNIQUE NOT NULL,
-                jobs TEXT NOT NULL DEFAULT '',
-                discord_id TEXT
-            );
-            CREATE TABLE IF NOT EXISTS lodestone_links (
-                person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
-                lodestone_id TEXT NOT NULL,
-                character_name TEXT,
-                fetched_at TEXT,
-                PRIMARY KEY (person_id, lodestone_id)
-            );
-            CREATE TABLE IF NOT EXISTS character_cache (
-                lodestone_id TEXT PRIMARY KEY,
-                data TEXT NOT NULL,
-                fetched_at TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS party_people (
-                party_name TEXT NOT NULL REFERENCES parties(name) ON DELETE CASCADE,
-                person_name TEXT NOT NULL REFERENCES people(name) ON DELETE CASCADE,
-                PRIMARY KEY (party_name, person_name)
-            );
-            CREATE TABLE IF NOT EXISTS scraper_tasks (
-                lodestone_id TEXT PRIMARY KEY,
-                priority INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL
-            );
-            INSERT OR IGNORE INTO parties (name) VALUES ('Default');
-            INSERT OR IGNORE INTO app_state (key, value) VALUES ('active_party', 'Default');
-        """)
-
-        if not _table_has_col("parties", "home_channel_id"):
-            db.execute("ALTER TABLE parties ADD COLUMN home_channel_id TEXT")
-        if not _table_has_col("parties", "home_message_id"):
-            db.execute("ALTER TABLE parties ADD COLUMN home_message_id TEXT")
-
-
-        default_cfg = [
-            ("std_comp", "true"),
-            ("no_dupes", "true"),
-            ("heal_mix", "false"),
-            ("max_melee", "4"),
-            ("max_pranged", "4"),
-            ("max_caster", "4"),
-            ("min_melee", "0"),
-            ("min_pranged", "0"),
-            ("min_caster", "0"),
-            ("min_selfish", "0"),
-            ("max_selfish", "4"),
-            ("min_utility", "0"),
-            ("max_utility", "4"),
-            ("min_gear_level", "0"),
-        ]
-        for k, v in default_cfg:
-            db.execute(
-                "INSERT OR IGNORE INTO party_constraints (party_name, key, value) VALUES ('Default', ?, ?)",
-                (k, v),
-            )
-
-        db.commit()
-
-
-# ── Scraper Tasks ────────────────────────────────────────────────────────
-
-def add_scraper_task(lodestone_id: str, priority: int = 1) -> None:
+def cache_character(lodestone_id: str, data: dict[str, Any]) -> None:
     from datetime import datetime
+    import json
+    now = datetime.now().isoformat()
+    # Use merge to insert or update
+    try:
+        Session.merge(CharacterCache(lodestone_id=lodestone_id, data=json.dumps(data), fetched_at=now))
+        Session.commit()
+    finally:
+        Session.remove()
 
-    now = datetime.now(UTC).isoformat()
-    with db_connection() as db:
-        db.execute(
-            "INSERT OR IGNORE INTO scraper_tasks (lodestone_id, priority, created_at) "
-            "VALUES (?, ?, ?)",
-            (lodestone_id, priority, now),
-        )
-        db.commit()
-
-
-def get_next_scraper_task() -> dict[str, Any] | None:
-    with db_connection() as db:
-        row = db.execute(
-            "SELECT lodestone_id, priority FROM scraper_tasks ORDER BY priority DESC, created_at ASC LIMIT 1"
-        ).fetchone()
+def get_cached_character(lodestone_id: str) -> dict[str, Any] | None:
+    import json
+    try:
+        row = Session.query(CharacterCache).filter_by(lodestone_id=lodestone_id).first()
         if not row:
             return None
-        return {"lodestone_id": row["lodestone_id"], "priority": row["priority"]}
+        data = json.loads(row.data)
+        data["fetched_at"] = row.fetched_at
+        return data
+    finally:
+        Session.remove()
 
-
-def delete_scraper_task(lodestone_id: str) -> None:
-    with db_connection() as db:
-        db.execute("DELETE FROM scraper_tasks WHERE lodestone_id = ?", (lodestone_id,))
-        db.commit()
-
-
-def active_party_name() -> str:
-    with db_connection() as db:
-        row = db.execute("SELECT value FROM app_state WHERE key='active_party'").fetchone()
-        return row["value"] if row else "Default"
-
-
-def parties_list() -> list[str]:
-    with db_connection() as db:
-        rows = db.execute("SELECT name FROM parties ORDER BY name").fetchall()
-        return [r["name"] for r in rows]
-
-
-def get_parties_details() -> list[dict[str, str | None]]:
-    with db_connection() as db:
-        rows = cast(
-            list[sqlite3.Row],
-            db.execute("SELECT name, home_channel_id FROM parties ORDER BY name").fetchall(),
-        )
+def people_pool() -> list[dict[str, Any]]:
+    try:
+        people = Session.query(Person).order_by(Person.name).all()
         return [
             {
-                "name": str(r["name"]),
-                "home_channel_id": r["home_channel_id"] if r["home_channel_id"] is not None else None,
+                "id": p.id,
+                "name": p.name,
+                "jobs": [j for j in (p.jobs or "").split(",") if j],
+                "discord_id": p.discord_id,
             }
-            for r in rows
+            for p in people
         ]
+    finally:
+        Session.remove()
 
+def add_person_to_party(person_name: str, party_name: str) -> None:
+    try:
+        if not Session.query(PartyPerson).filter_by(party_name=party_name, person_name=person_name).first():
+            Session.add(PartyPerson(party_name=party_name, person_name=person_name))
+            Session.commit()
+    finally:
+        Session.remove()
+
+def remove_person_from_party(person_name: str, party_name: str) -> None:
+    try:
+        Session.query(PartyPerson).filter_by(party_name=party_name, person_name=person_name).delete()
+        Session.commit()
+    finally:
+        Session.remove()
+
+def active_party_name() -> str:
+    try:
+        row = Session.query(AppState).filter_by(key='active_party').first()
+        return row.value if row else "Default"
+    finally:
+        Session.remove()
 
 def create_party(name: str) -> None:
-    with db_connection() as db:
-        db.execute("INSERT INTO parties (name) VALUES (?)", (name,))
-        cfg_rows = db.execute("SELECT key, value FROM party_constraints WHERE party_name='Default'").fetchall()
-        for r in cfg_rows:
-            db.execute(
-                "INSERT OR REPLACE INTO party_constraints (party_name, key, value) VALUES (?, ?, ?)",
-                (name, r["key"], r["value"]),
-            )
-        db.commit()
-
+    try:
+        Session.add(Party(name=name))
+        Session.commit()
+    finally:
+        Session.remove()
 
 def delete_party(name: str) -> None:
     if name == "Default":
         return
-    with db_connection() as db:
-        db.execute("DELETE FROM party_people WHERE party_name = ?", (name,))
-        db.execute("DELETE FROM party_constraints WHERE party_name = ?", (name,))
-        db.execute("DELETE FROM party_exclusions WHERE party_name = ?", (name,))
-        db.execute("DELETE FROM parties WHERE name = ?", (name,))
-        db.commit()
+    try:
+        Session.query(PartyPerson).filter_by(party_name=name).delete()
+        Session.query(Party).filter_by(name=name).delete()
+        Session.commit()
+    finally:
+        Session.remove()
 
-
-def switch_party(name: str) -> None:
-    with db_connection() as db:
-        db.execute("INSERT OR REPLACE INTO app_state (key, value) VALUES ('active_party', ?)", (name,))
-        db.commit()
-
-
-# ── People (per-party) ───────────────────────────────────────────────────
-
-
-def people_from_db(party_name: str) -> list[dict[str, Any]]:
-    with db_connection() as db:
-        rows = db.execute(
-            """SELECT p.id, p.name, p.jobs, p.discord_id, l.lodestone_id FROM people p
-               JOIN party_people pp ON pp.person_name = p.name
-               LEFT JOIN lodestone_links l ON p.id = l.person_id
-               WHERE pp.party_name = ?""",
-            (party_name,),
-        ).fetchall()
-        return [
-            {
-                "id": r["id"],
-                "name": r["name"],
-                "jobs": [j for j in (r["jobs"] or "").split(",") if j],
-                "discord_id": r["discord_id"],
-                "has_lodestone": r["lodestone_id"] is not None,
-            }
-            for r in rows
-        ]
-
-
-def people_pool() -> list[dict[str, Any]]:
-    with db_connection() as db:
-        rows = db.execute("SELECT p.id, p.name, p.jobs, p.discord_id, l.lodestone_id FROM people p LEFT JOIN lodestone_links l ON p.id = l.person_id ORDER BY p.name").fetchall()
-        return [
-            {
-                "id": r["id"],
-                "name": r["name"],
-                "jobs": [j for j in (r["jobs"] or "").split(",") if j],
-                "discord_id": r["discord_id"],
-                "has_lodestone": r["lodestone_id"] is not None,
-            }
-            for r in rows
-        ]
-
-
-def people_to_db(data: list[dict[str, Any]], party_name: str) -> None:
-    with db_connection() as db:
-        db.execute("DELETE FROM party_people WHERE party_name = ?", (party_name,))
-        for entry in data:
-            name = entry.get("name", "")
-            if not name:
-                continue
-            jobs = ",".join(entry.get("jobs", []))
-            discord_id = entry.get("discord_id")
-            db.execute(
-                "INSERT OR REPLACE INTO people (name, jobs, discord_id) VALUES (?, ?, ?)",
-                (name, jobs, discord_id),
-            )
-            db.execute(
-                "INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES (?, ?)",
-                (party_name, name),
-            )
-        db.commit()
-
-
-def pool_save(data: list[dict[str, Any]]) -> None:
-    """Replace the entire people pool (used by bot commands, no party scope)."""
-    with db_connection() as db:
-        db.execute("DELETE FROM people")
-        for entry in data:
-            name = entry.get("name", "")
-            if not name:
-                continue
-            jobs = ",".join(entry.get("jobs", []))
-            discord_id = entry.get("discord_id")
-            db.execute("INSERT INTO people (name, jobs, discord_id) VALUES (?, ?, ?)", (name, jobs, discord_id))
-        db.commit()
-
-
-def add_person_to_party(person_name: str, party_name: str) -> None:
-    with db_connection() as db:
-        db.execute(
-            "INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES (?, ?)",
-            (party_name, person_name),
-        )
-        db.commit()
-
-
-def remove_person_from_party(person_name: str, party_name: str) -> None:
-    with db_connection() as db:
-        db.execute("DELETE FROM party_people WHERE party_name = ? AND person_name = ?", (party_name, person_name))
-        db.commit()
-
-
-def check_party_member(discord_id: str, party_name: str) -> bool:
-    with db_connection() as db:
-        row = db.execute(
-            """SELECT 1 FROM party_people pp
-               JOIN people p ON pp.person_name = p.name
-               WHERE p.discord_id = ? AND pp.party_name = ?""",
-            (discord_id, party_name),
-        ).fetchone()
-        return row is not None
-
-
-
-def get_party_members(party_name: str) -> list[dict[str, Any]]:
-    with db_connection() as db:
-        rows = db.execute(
-            """SELECT p.id, p.name, p.jobs, l.lodestone_id, l.character_name, c.fetched_at 
-               FROM people p
-               JOIN party_people pp ON pp.person_name = p.name
-               LEFT JOIN lodestone_links l ON p.id = l.person_id
-               LEFT JOIN character_cache c ON l.lodestone_id = c.lodestone_id
-               WHERE pp.party_name = ?""",
-            (party_name,),
-        ).fetchall()
-        return [
-            {
-                "id": r["id"],
-                "name": r["name"],
-                "jobs": [j for j in (r["jobs"] or "").split(",") if j],
-                "lodestone_id": r["lodestone_id"],
-                "character_name": r["character_name"],
-                "fetched_at": r["fetched_at"]
-            }
-            for r in rows
-        ]
-
-
-def get_parties_for_lodestone_id(lodestone_id: str) -> list[dict[str, Any]]:
-    with db_connection() as db:
-        rows = db.execute(
-            """SELECT p.home_channel_id, p.home_message_id, p.name 
-               FROM parties p
-               JOIN party_people pp ON p.name = pp.party_name
-               JOIN people pe ON pp.person_name = pe.name
-               JOIN lodestone_links l ON pe.id = l.person_id
-               WHERE l.lodestone_id = ? AND p.home_channel_id IS NOT NULL""",
-            (lodestone_id,),
-        ).fetchall()
-        return [{"channel_id": r["home_channel_id"], "message_id": r["home_message_id"], "name": r["name"]} for r in rows]
-
-
-# ── Constraints (per-party) ──────────────────────────────────────────────
-
-
-def constraints_from_db(party_name: str) -> dict[str, Any]:
-    with db_connection() as db:
-        rows = db.execute(
-            "SELECT key, value FROM party_constraints WHERE party_name = ?", (party_name,)
-        ).fetchall()
-        out: dict[str, Any] = {}
-        for r in rows:
-            raw = r["value"].lower()
-            if raw == "true":
-                out[r["key"]] = True
-            elif raw == "false":
-                out[r["key"]] = False
-            else:
-                try:
-                    out[r["key"]] = int(raw)
-                except ValueError:
-                    out[r["key"]] = raw
-        excl_rows = db.execute(
-            "SELECT rowid, jobs FROM party_exclusions WHERE party_name = ? ORDER BY rowid", (party_name,)
-        ).fetchall()
-        out["exclusions"] = [r["jobs"].split(",") for r in excl_rows]
-        return out
-
-
-def constraints_to_db(data: dict[str, Any], party_name: str) -> None:
-    with db_connection() as db:
-        db.execute("DELETE FROM party_constraints WHERE party_name = ?", (party_name,))
-        for k, v in data.items():
-            if k == "exclusions":
-                continue
-            store = str(v).lower() if isinstance(v, bool) else str(v)
-            db.execute("INSERT INTO party_constraints (party_name, key, value) VALUES (?, ?, ?)", (party_name, k, store))
-        db.execute("DELETE FROM party_exclusions WHERE party_name = ?", (party_name,))
-        for group in data.get("exclusions", []):
-            db.execute("INSERT INTO party_exclusions (party_name, jobs) VALUES (?, ?)", (party_name, ",".join(group)))
-        db.commit()
-
-
-# ── Admin roles ──────────────────────────────────────────────────────────
-
-
-def get_role_ids(guild_id: str) -> set[str]:
-    with db_connection() as db:
-        rows = db.execute("SELECT role_id FROM admin_roles WHERE guild_id = ?", (guild_id,)).fetchall()
-        return {r["role_id"] for r in rows}
-
-
-def add_role_id(guild_id: str, role_id: str) -> None:
-    with db_connection() as db:
-        db.execute("INSERT OR IGNORE INTO admin_roles (guild_id, role_id) VALUES (?, ?)", (guild_id, role_id))
-        db.commit()
-
-
-def remove_role_id(guild_id: str, role_id: str) -> None:
-    with db_connection() as db:
-        db.execute("DELETE FROM admin_roles WHERE guild_id = ? AND role_id = ?", (guild_id, role_id))
-        db.commit()
-
-
-def bot_owner_id() -> str | None:
-    with db_connection() as db:
-        row = db.execute("SELECT value FROM app_state WHERE key='bot_owner_id'").fetchone()
-        return row["value"] if row else None
-
-
-def set_lodestone_link(person_id: int, lodestone_id: str, character_name: str | None = None) -> None:
+def add_scraper_task(lodestone_id: str, priority: int = 0) -> None:
     from datetime import datetime
+    try:
+        Session.merge(ScraperTask(lodestone_id=lodestone_id, priority=priority, created_at=datetime.now().isoformat()))
+        Session.commit()
+    finally:
+        Session.remove()
 
-    now = datetime.now(UTC).isoformat()
-    with db_connection() as db:
-        db.execute(
-            "INSERT INTO lodestone_links (person_id, lodestone_id, character_name, fetched_at) VALUES (?, ?, ?, ?) "
-            "ON CONFLICT(person_id, lodestone_id) DO UPDATE SET character_name = excluded.character_name",
-            (person_id, lodestone_id, character_name, now),
-        )
-        db.commit()
+def get_next_scraper_task() -> dict[str, Any] | None:
+    try:
+        task = Session.query(ScraperTask).order_by(ScraperTask.priority.desc(), ScraperTask.created_at.asc()).first()
+        if not task:
+            return None
+        return {'lodestone_id': task.lodestone_id, 'priority': task.priority}
+    finally:
+        Session.remove()
 
+def delete_scraper_task(lodestone_id: str) -> None:
+    try:
+        Session.query(ScraperTask).filter_by(lodestone_id=lodestone_id).delete()
+        Session.commit()
+    finally:
+        Session.remove()
+
+def set_lodestone_link(person_id: int, lodestone_id: str, character_name: str) -> None:
+    from datetime import datetime
+    try:
+        Session.merge(LodestoneLink(
+            person_id=person_id, 
+            lodestone_id=lodestone_id, 
+            character_name=character_name,
+            fetched_at=datetime.now().isoformat()
+        ))
+        Session.commit()
+    finally:
+        Session.remove()
 
 def update_lodestone_fetched_at(lodestone_id: str) -> None:
     from datetime import datetime
-
-    now = datetime.now(UTC).isoformat()
-    with db_connection() as db:
-        db.execute(
-            "UPDATE lodestone_links SET fetched_at = ? WHERE lodestone_id = ?",
-            (now, lodestone_id),
-        )
-        db.commit()
-
+    try:
+        link = Session.query(LodestoneLink).filter_by(lodestone_id=lodestone_id).first()
+        if link:
+            link.fetched_at = datetime.now().isoformat()
+            Session.commit()
+    finally:
+        Session.remove()
 
 def get_lodestone_link(person_id: int) -> dict[str, Any] | None:
-    with db_connection() as db:
-        row = db.execute(
-            "SELECT lodestone_id, character_name, fetched_at FROM lodestone_links WHERE person_id = ?",
-            (person_id,),
-        ).fetchone()
-        if not row:
+    try:
+        link = Session.query(LodestoneLink).filter_by(person_id=person_id).first()
+        if not link:
             return None
-        return {"lodestone_id": row["lodestone_id"], "character_name": row["character_name"], "fetched_at": row["fetched_at"]}
+        return {'person_id': link.person_id, 'lodestone_id': link.lodestone_id}
+    finally:
+        Session.remove()
 
+from sqlalchemy.orm import sessionmaker, scoped_session, joinedload
+from app.models import Base, Party, Person, PartyPerson, AppState, LodestoneLink, CharacterCache, PartyConstraint
 
-def cache_character(lodestone_id: str, data: dict[str, Any]) -> None:
-    from datetime import datetime
-
-    now = datetime.now(UTC).isoformat()
-    with db_connection() as db:
-        db.execute(
-            "INSERT OR REPLACE INTO character_cache (lodestone_id, data, fetched_at) VALUES (?, ?, ?)",
-            (lodestone_id, json.dumps(data), now),
+def get_parties_for_lodestone_id(lodestone_id: str) -> list[dict[str, Any]]:
+    # Find all PartyPerson entries linked to this person, and map to party
+    try:
+        results = (
+            Session.query(PartyPerson)
+            .join(PartyPerson.person)
+            .join(Person.lodestone)
+            .filter(LodestoneLink.lodestone_id == lodestone_id)
+            .all()
         )
-        db.commit()
+        
+        # We also need the channel/message info from the Party table
+        # but the PartyPerson model only has party_name. 
+        # We need to query the Party table for each party_name.
+        party_names = {r.party_name for r in results}
+        parties = Session.query(Party).filter(Party.name.in_(party_names)).all()
+        party_map = {p.name: p for p in parties}
+        
+        output = []
+        for r in results:
+            p = party_map.get(r.party_name)
+            if p and p.home_channel_id and p.home_message_id:
+                output.append({
+                    'name': p.name,
+                    'channel_id': p.home_channel_id,
+                    'message_id': p.home_message_id
+                })
+        return output
+    finally:
+        Session.remove()
 
+def people_from_db(party_name: str) -> list[dict[str, Any]]:
+    try:
+        people = Session.query(Person).join(PartyPerson).filter(PartyPerson.party_name == party_name).order_by(Person.name).all()
+        return [
+            {
+                "id": p.id,
+                "name": p.name,
+                "jobs": [j for j in (p.jobs or "").split(",") if j],
+                "discord_id": p.discord_id,
+            }
+            for p in people
+        ]
+    finally:
+        Session.remove()
 
-def get_cached_character(lodestone_id: str) -> dict[str, Any] | None:
-    with db_connection() as db:
-        row = db.execute(
-            "SELECT data, fetched_at FROM character_cache WHERE lodestone_id = ?",
-            (lodestone_id,),
-        ).fetchone()
-        if not row:
-            return None
-        data = json.loads(row["data"])
-        data["fetched_at"] = row["fetched_at"]
-        return data
+def constraints_from_db(party_name: str) -> dict[str, Any]:
+    try:
+        constraints = Session.query(PartyConstraint).filter_by(party_name=party_name).all()
+        return {c.key: c.value for c in constraints}
+    finally:
+        Session.remove()
 
+def constraints_to_db(data: dict[str, Any], party_name: str) -> None:
+    try:
+        Session.query(PartyConstraint).filter_by(party_name=party_name).delete()
+        for key, value in data.items():
+            Session.add(PartyConstraint(party_name=party_name, key=key, value=str(value)))
+        Session.commit()
+    finally:
+        Session.remove()
 
-def get_character_data(person_name: str) -> dict[str, Any] | None:
-    db = get_db()
-    row = db.execute(
-        """SELECT l.lodestone_id, c.data, l.character_name FROM people p
-           JOIN lodestone_links l ON p.id = l.person_id
-           JOIN character_cache c ON l.lodestone_id = c.lodestone_id
-           WHERE p.name = ?""",
-        (person_name,),
-    ).fetchone()
-    if not has_app_context():
-        close_db(conn=db)
-    if not row:
-        return None
-    data = json.loads(row["data"])
-    data["character_name"] = row["character_name"]
-    return data
+def switch_party(name: str) -> None:
+    try:
+        state = Session.query(AppState).filter_by(key='active_party').first()
+        if state:
+            state.value = name
+        else:
+            Session.add(AppState(key='active_party', value=name))
+        Session.commit()
+    finally:
+        Session.remove()
+
+def get_party_members(party_name: str) -> list[dict[str, Any]]:
+    # Use joinedload to fetch person and lodestone data in one query
+    try:
+        results = (
+            Session.query(PartyPerson)
+            .options(
+                joinedload(PartyPerson.person)
+                .joinedload(Person.lodestone)
+            )
+            .filter_by(party_name=party_name)
+            .all()
+        )
+        
+        # We also need character cache data, which can be fetched based on lodestone_id
+        lodestone_ids = [r.person.lodestone.lodestone_id for r in results if r.person.lodestone]
+        cache_map = {}
+        if lodestone_ids:
+            cache_data = Session.query(CharacterCache).filter(CharacterCache.lodestone_id.in_(lodestone_ids)).all()
+            cache_map = {c.lodestone_id: {"data": c.data, "fetched_at": c.fetched_at} for c in cache_data}
+        
+        members = []
+        for pp in results:
+            char_data = None
+            if pp.person.lodestone:
+                char_data = cache_map.get(pp.person.lodestone.lodestone_id)
+                
+            members.append({
+                "id": pp.person.id,
+                "name": pp.person.name,
+                "jobs": [j for j in (pp.person.jobs or "").split(",") if j],
+                "lodestone_id": pp.person.lodestone.lodestone_id if pp.person.lodestone else None,
+                "character_name": pp.person.lodestone.character_name if pp.person.lodestone else None,
+                "fetched_at": char_data["fetched_at"] if char_data else None
+            })
+        return members
+    finally:
+        Session.remove()
+
+def pool_save(people_data: list[dict[str, Any]]) -> None:
+    try:
+        Session.query(Person).delete()
+        for p in people_data:
+            Session.add(Person(
+                name=p["name"],
+                jobs=",".join(p["jobs"]),
+                discord_id=p.get("discord_id")
+            ))
+        Session.commit()
+    finally:
+        Session.remove()

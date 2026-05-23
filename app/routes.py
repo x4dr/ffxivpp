@@ -29,13 +29,13 @@ from app.db import (
     constraints_from_db,
     constraints_to_db,
     create_party,
-    db_connection,
     get_parties_details,
     people_from_db,
     people_pool,
     people_to_db,
     remove_person_from_party,
     switch_party,
+    Session,
 )
 from app.models import Constraints, Person
 
@@ -108,25 +108,25 @@ def api_constraints(party_name: str) -> Response:
 @bp.route("/api/exclusions", methods=["GET", "PUT"])
 @require_party_member
 def api_exclusions(party_name: str) -> Response:
-    from app.db import get_db
     if request.method == "GET":
-        rows = get_db().execute(
-            "SELECT rowid, jobs FROM party_exclusions WHERE party_name = ? ORDER BY rowid",
-            (party_name,),
-        ).fetchall()
-        return jsonify([r["jobs"].split(",") for r in rows])
+        try:
+            exclusions = Session.query(PartyExclusion).filter_by(party_name=party_name).order_by(PartyExclusion.id).all()
+            return jsonify([e.jobs.split(",") for e in exclusions])
+        finally:
+            Session.remove()
     if not check_access():
         return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     exclusions_data = data.get("exclusions", data) if isinstance(data, dict) else data
     if not isinstance(exclusions_data, list):
         return make_response(jsonify({"error": "expected array"}), 400)
-    db = get_db()
-    db.execute("DELETE FROM party_exclusions WHERE party_name = ?", (party_name,))
+    
+    from app.models import PartyExclusion
+    Session.query(PartyExclusion).filter_by(party_name=party_name).delete()
     for group in exclusions_data:
         if isinstance(group, list) and group:
-            db.execute("INSERT INTO party_exclusions (party_name, jobs) VALUES (?, ?)", (party_name, ",".join(group)))
-    db.commit()
+            Session.add(PartyExclusion(party_name=party_name, jobs=",".join(group)))
+    Session.commit()
     return jsonify({"ok": True})
 
 
@@ -231,9 +231,12 @@ def api_parties_home_channel() -> Response:
     if not party_name:
         return make_response(jsonify({"error": "party_name required"}), 400)
 
-    with db_connection() as db:
-        db.execute("UPDATE parties SET home_channel_id = ? WHERE name = ?", (channel_id or None, party_name))
-        db.commit()
+    party = Session.query(Party).filter_by(name=party_name).first()
+    if not party:
+        return make_response(jsonify({"error": "party not found"}), 404)
+        
+    party.home_channel_id = channel_id or None
+    Session.commit()
     return jsonify({"ok": True})
 
 
@@ -368,7 +371,7 @@ def dashboard() -> Response:
 @bp.route("/party")
 @bp.route("/party/")
 def party_index() -> Response:
-    from app.db import active_party_name
+    from app.models import Party
     return send_from_directory(str(STATIC_DIR), "partydashboard.html")
 
 

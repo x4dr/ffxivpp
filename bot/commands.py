@@ -13,7 +13,6 @@ import asyncio
 import os
 import random
 import re
-import sqlite3
 from datetime import UTC, datetime
 from typing import Any
 
@@ -23,9 +22,12 @@ from discord.ui import Button, Select, View
 
 from app.compute import JOBS, JOBS_BY_ID, get_priority, parse_job_id
 from app.db import (
+    Session,
     add_role_id,
     remove_role_id,
+    get_lodestone_link,
 )
+from app.models import AppState, LodestoneLink, PartyPerson, Person, Party
 
 VALID_JOBS = {j.id for j in JOBS}
 JOB_NAMES = {j.id: j.name for j in JOBS}
@@ -81,7 +83,7 @@ class PartyBot(discord.Client):
         """Background loop to refresh character data with optimized DB locking."""
         from app.db import (
             cache_character,
-            db_connection,
+            Session,
             delete_scraper_task,
             get_next_scraper_task,
             get_parties_for_lodestone_id,
@@ -89,6 +91,7 @@ class PartyBot(discord.Client):
             update_lodestone_fetched_at,
         )
         from app.lodestone import fetch_character
+        from app.models import LodestoneLink
 
         loop = asyncio.get_event_loop()
         await asyncio.sleep(10)
@@ -101,20 +104,22 @@ class PartyBot(discord.Client):
 
                 if task:
                     lodestone_id = task['lodestone_id']
-                    with db_connection() as db:
-                        row = db.execute("SELECT person_id FROM lodestone_links WHERE lodestone_id = ?", (lodestone_id,)).fetchone()
-                        person_id = row['person_id'] if row else None
+                    try:
+                        link = Session.query(LodestoneLink).filter_by(lodestone_id=lodestone_id).first()
+                        person_id = link.person_id if link else None
+                    finally:
+                        Session.remove()
                     logging.info(f"Scraping high-priority {lodestone_id}...")
                     sleep_time = 1
                     is_priority = True
                 else:
                     # Fallback to regular task
-                    with db_connection() as db:
-                        row = db.execute(
-                            "SELECT person_id, lodestone_id FROM lodestone_links ORDER BY fetched_at ASC LIMIT 1"
-                        ).fetchone()
-                        lodestone_id = row['lodestone_id'] if row else None
-                        person_id = row['person_id'] if row else None
+                    try:
+                        link = Session.query(LodestoneLink).order_by(LodestoneLink.fetched_at.asc()).first()
+                        lodestone_id = link.lodestone_id if link else None
+                        person_id = link.person_id if link else None
+                    finally:
+                        Session.remove()
                     sleep_time = 10
                     is_priority = False
 
@@ -149,15 +154,6 @@ class PartyBot(discord.Client):
                     await asyncio.sleep(sleep_time) # Wait if no tasks at all
                     continue # Skip the trailing sleep if we just did a wait
 
-            except sqlite3.OperationalError as e:
-
-                if "locked" in str(e).lower():
-                    wait = random.uniform(2, 10)
-                    logging.warning(f"Database locked, retrying in {wait:.2f}s...")
-                    await asyncio.sleep(wait)
-                    continue
-                else:
-                    logging.error(f"Database error: {e}")
             except Exception as e:
                 logging.error(f"Scraper error: {e}")
             await asyncio.sleep(sleep_time)
@@ -169,14 +165,16 @@ class PartyBot(discord.Client):
         self.add_view(PersistentPartyView())
         if self.application and self.application.owner:
             owner_id = str(self.application.owner.id)
-            from app.db import db_connection
 
-            with db_connection() as db:
-                db.execute(
-                    "INSERT OR REPLACE INTO app_state (key, value) VALUES ('bot_owner_id', ?)",
-                    (owner_id,),
-                )
-                db.commit()
+            try:
+                state = Session.query(AppState).filter_by(key='bot_owner_id').first()
+                if state:
+                    state.value = owner_id
+                else:
+                    Session.add(AppState(key='bot_owner_id', value=owner_id))
+                Session.commit()
+            finally:
+                Session.remove()
             print(f"Bot owner ID stored: {owner_id}")
 
 
@@ -208,7 +206,7 @@ def _load_person(name: str, discord_id: str | None = None) -> list[dict[str, Any
 
 
 def _save_person(name: str, jids: list[str], discord_id: str | None = None) -> None:
-    from app.db import db_connection, people_pool, pool_save
+    from app.db import people_pool, pool_save
 
     current = people_pool()
     if discord_id:
@@ -221,12 +219,12 @@ def _save_person(name: str, jids: list[str], discord_id: str | None = None) -> N
     current.append(entry)
     pool_save(current)
     if discord_id:
-        with db_connection() as db:
-            db.execute(
-                "INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES ('Default', ?)",
-                (name,),
-            )
-            db.commit()
+        try:
+            if not Session.query(PartyPerson).filter_by(party_name='Default', person_name=name).first():
+                Session.add(PartyPerson(party_name='Default', person_name=name))
+                Session.commit()
+        finally:
+            Session.remove()
 
 
 def _build_job_list(jobs: list[str]) -> str:
@@ -412,7 +410,7 @@ async def setlodestone(interaction: discord.Interaction, url: str) -> None:
 
     await interaction.response.defer(ephemeral=True)
 
-    from app.db import close_db, get_db, set_lodestone_link
+    from app.db import set_lodestone_link
     from app.lodestone import fetch_character
 
     data = fetch_character(lodestone_id)
@@ -421,15 +419,16 @@ async def setlodestone(interaction: discord.Interaction, url: str) -> None:
         return
 
     # Find the person_id by discord_id
-    db = get_db()
-    row = db.execute("SELECT id FROM people WHERE discord_id = ?", (str(interaction.user.id),)).fetchone()
-    close_db(conn=db)
+    try:
+        person = Session.query(Person).filter_by(discord_id=str(interaction.user.id)).first()
+    finally:
+        Session.remove()
 
-    if not row:
+    if not person:
         await interaction.followup.send("Could not find a linked person for your Discord account.", ephemeral=True)
         return
 
-    person_id = row['id']
+    person_id = person.id
     set_lodestone_link(person_id, lodestone_id, data["name"])
 
     job_lines = []
@@ -512,7 +511,8 @@ class DashboardButton(Button):
         super().__init__(label="Dashboard", style=discord.ButtonStyle.secondary, custom_id="party_dashboard")
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        url = PersistentPartyView()._get_dashboard_url("")
+        party_name = interaction.message.embeds[0].title.replace("Party: ", "")
+        url = PersistentPartyView()._get_dashboard_url(party_name)
         await interaction.response.send_message(f"Dashboard: {url}", ephemeral=True)
 
 
@@ -553,7 +553,6 @@ class PersistentPartyView(View):
 
     @discord.ui.button(label="Move to Bottom", style=discord.ButtonStyle.secondary, custom_id="party_move_bottom")
     async def move_to_bottom(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
-        from app.db import db_connection
         party_name = interaction.message.embeds[0].title.replace("Party: ", "")
 
         logging.info(f"Moving party {party_name} to bottom.")
@@ -577,10 +576,14 @@ class PersistentPartyView(View):
         await interaction.message.delete()
 
         # Update DB
-        with db_connection() as db:
-            db.execute("UPDATE parties SET home_channel_id = ?, home_message_id = ? WHERE name = ?",
-                       (str(interaction.channel.id), str(new_msg.id), party_name))
-            db.commit()
+        try:
+            party = Session.query(Party).filter_by(name=party_name).first()
+            if party:
+                party.home_channel_id = str(interaction.channel.id)
+                party.home_message_id = str(new_msg.id)
+                Session.commit()
+        finally:
+            Session.remove()
 
         logging.info(f"Updated DB for party {party_name} to channel {interaction.channel.id}, message {new_msg.id}")
 
@@ -654,11 +657,12 @@ class PersistentPartyView(View):
 @app_commands.describe(party_name="The name of the party to set up")
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_home_channel(interaction: discord.Interaction, party_name: str) -> None:
-    from app.db import db_connection
-
     # Check if party exists
-    with db_connection() as db:
-        party = db.execute("SELECT name FROM parties WHERE name = ?", (party_name,)).fetchone()
+    try:
+        party = Session.query(Party).filter_by(name=party_name).first()
+    finally:
+        Session.remove()
+
 
     if not party:
         view = CreatePartyView(party_name)
@@ -678,11 +682,14 @@ async def _perform_setup(interaction: discord.Interaction, party_name: str) -> N
     view = PersistentPartyView()
     msg = await channel.send(embed=embed, view=view)
 
-    from app.db import db_connection
-    with db_connection() as db:
-        db.execute("UPDATE parties SET home_channel_id = ?, home_message_id = ? WHERE name = ?",
-                   (str(channel.id), str(msg.id), party_name))
-        db.commit()
+    try:
+        party = Session.query(Party).filter_by(name=party_name).first()
+        if party:
+            party.home_channel_id = str(channel.id)
+            party.home_message_id = str(msg.id)
+            Session.commit()
+    finally:
+        Session.remove()
 
     # If this was called from a button, edit the original response
     if interaction.response.is_done():
