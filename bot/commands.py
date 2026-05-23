@@ -18,7 +18,6 @@ from app.db import (
     constraints_from_db,
     get_role_ids,
     people_from_db,
-    people_to_db,
     remove_role_id,
 )
 from app.models import Constraints, Person
@@ -99,19 +98,33 @@ async def on_command_error(
 
 
 def _load_person(name: str, discord_id: str | None = None) -> list[dict[str, Any]]:
-    current = people_from_db()
+    from app.db import people_pool
+
+    current = people_pool()
     if discord_id:
         return [p for p in current if p.get("discord_id") != discord_id]
     return [p for p in current if p["name"] != name]
 
 
 def _save_person(name: str, jids: list[str], discord_id: str | None = None) -> None:
-    current = _load_person(name, discord_id)
+    from app.db import get_db, people_pool, pool_save
+
+    current = people_pool()
+    if discord_id:
+        current = [p for p in current if p.get("discord_id") != discord_id]
+    else:
+        current = [p for p in current if p["name"] != name]
     entry: dict[str, Any] = {"name": name, "jobs": jids}
     if discord_id:
         entry["discord_id"] = discord_id
     current.append(entry)
-    people_to_db(current)
+    pool_save(current)
+    if discord_id:
+        get_db().execute(
+            "INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES ('Default', ?)",
+            (name,),
+        )
+        get_db().commit()
 
 
 def _build_job_list(jobs: list[str]) -> str:
@@ -195,15 +208,31 @@ class MyJobsView(View):
 
 class RoleSelect(Select):
     def __init__(self, parent: MyJobsView) -> None:
-        opts = [
-            discord.SelectOption(label=label, emoji=emoji, value=role)
-            for role, label, emoji in ROLES
-        ]
+        opts: list[discord.SelectOption] = []
+        for role, label, emoji in ROLES:
+            opts.append(discord.SelectOption(label=label, emoji=emoji, value=role))
+        opts.append(discord.SelectOption(label="──────────", value="---", disabled=True))
+        for role, label, emoji in ROLES:
+            opts.append(discord.SelectOption(label=f"All {label}s", emoji=emoji, value=f"all_{role}"))
         super().__init__(placeholder="Add a job…", options=opts)
         self._main_view = parent
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        role = self.values[0]
+        val = self.values[0]
+        if val.startswith("all_"):
+            role = val.removeprefix("all_")
+            added = 0
+            for jid in ROLE_JOBS[role]:
+                if not any(j == jid for j, _ in self._main_view.jobs):
+                    self._main_view.jobs.append((jid, 5))
+                    added += 1
+            self._main_view._save()
+            self._main_view._build()
+            await interaction.response.edit_message(
+                embed=self._main_view.build_embed(), view=self._main_view
+            )
+            return
+        role = val
         jobs_for_role = ROLE_JOBS[role]
         view = JobPicker(self._main_view, jobs_for_role)
         await interaction.response.send_message("Pick a job to add:", view=view, ephemeral=True)

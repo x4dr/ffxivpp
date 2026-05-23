@@ -18,7 +18,20 @@ from flask import (
 
 from app.auth import get_discord, require_admin
 from app.compute import JOBS, compute_parties, compute_parties_stream
-from app.db import constraints_from_db, constraints_to_db, people_from_db, people_to_db
+from app.db import (
+    active_party_name,
+    add_person_to_party,
+    constraints_from_db,
+    constraints_to_db,
+    create_party,
+    delete_party,
+    parties_list,
+    people_from_db,
+    people_pool,
+    people_to_db,
+    remove_person_from_party,
+    switch_party,
+)
 from app.models import Constraints, Person
 
 bp = Blueprint("api", __name__)
@@ -76,17 +89,21 @@ def api_constraints() -> Response:
 def api_exclusions() -> Response:
     from app.db import get_db
 
+    party_name = active_party_name()
     if request.method == "GET":
-        rows = get_db().execute("SELECT jobs FROM exclusions ORDER BY id").fetchall()
+        rows = get_db().execute(
+            "SELECT rowid, jobs FROM party_exclusions WHERE party_name = ? ORDER BY rowid",
+            (party_name,),
+        ).fetchall()
         return jsonify([r["jobs"].split(",") for r in rows])
     data = request.get_json(force=True)
     if not isinstance(data, list):
         return make_response(jsonify({"error": "expected array"}), 400)
     db = get_db()
-    db.execute("DELETE FROM exclusions")
+    db.execute("DELETE FROM party_exclusions WHERE party_name = ?", (party_name,))
     for group in data:
         if isinstance(group, list) and group:
-            db.execute("INSERT INTO exclusions (jobs) VALUES (?)", (",".join(group),))
+            db.execute("INSERT INTO party_exclusions (party_name, jobs) VALUES (?, ?)", (party_name, ",".join(group)))
     db.commit()
     return jsonify({"ok": True})
 
@@ -106,6 +123,86 @@ def api_compute() -> Response:
             for party in parties[:2000]
         ],
     })
+
+
+@bp.route("/api/members")
+def api_members() -> Response:
+    from app.auth import _bot_api, _guild_id
+
+    guild_id = _guild_id()
+    if not guild_id:
+        return make_response(jsonify({"error": "no guild configured"}), 400)
+    data = _bot_api("GET", f"/guilds/{guild_id}/members?limit=1000")
+    if not data:
+        return make_response(jsonify({"error": "failed to fetch members"}), 500)
+    members = [
+        {
+            "id": m["user"]["id"],
+            "name": m.get("nick") or m["user"].get("global_name") or m["user"]["username"],
+        }
+        for m in data if not m["user"]["bot"]
+    ]
+    return jsonify(members)
+
+
+@bp.route("/api/parties", methods=["GET", "POST"])
+def api_parties() -> Response:
+    if request.method == "GET":
+        return jsonify({
+            "parties": parties_list(),
+            "active": active_party_name(),
+        })
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    if not name:
+        return make_response(jsonify({"error": "name required"}), 400)
+    create_party(name)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/parties/switch", methods=["POST"])
+def api_parties_switch() -> Response:
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    if not name:
+        return make_response(jsonify({"error": "name required"}), 400)
+    switch_party(name)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/parties/delete", methods=["POST"])
+def api_parties_delete() -> Response:
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    if not name:
+        return make_response(jsonify({"error": "name required"}), 400)
+    delete_party(name)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/people-pool")
+def api_people_pool() -> Response:
+    return jsonify(people_pool())
+
+
+@bp.route("/api/people-pool/add", methods=["POST"])
+def api_people_pool_add() -> Response:
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    if not name:
+        return make_response(jsonify({"error": "name required"}), 400)
+    add_person_to_party(name)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/people-pool/remove", methods=["POST"])
+def api_people_pool_remove() -> Response:
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    if not name:
+        return make_response(jsonify({"error": "name required"}), 400)
+    remove_person_from_party(name)
+    return jsonify({"ok": True})
 
 
 REPO_DIR = Path(__file__).resolve().parent.parent

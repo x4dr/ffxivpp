@@ -89,6 +89,13 @@
 
   <div class="header">
     <div class="header-left"><h1>FF14 Party Planner</h1></div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:0.8rem;color:#666;">Party:</span>
+      <select id="party-select" onchange="switchParty(this.value)" style="background:#12122e;color:#e0e0e0;border:1px solid #3a3a6a;border-radius:4px;padding:4px 8px;font-size:0.85rem;"></select>
+      <input id="new-party-name" placeholder="New party name" style="background:#12122e;color:#e0e0e0;border:1px solid #3a3a6a;border-radius:4px;padding:4px 8px;font-size:0.85rem;width:140px;" onkeydown="if(event.key==='Enter')createParty()">
+      <button class="btn btn-sm btn-primary" onclick="createParty()">+</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteCurrentParty()" id="delete-party-btn" title="Delete this party">🗑</button>
+    </div>
     <div class="header-right" id="user-area">
       <span id="user-name"></span>
       <img id="user-avatar" src="" alt="">
@@ -103,6 +110,17 @@
         <div id="people-editor"></div>
   <div class="btn-group">
     <button class="btn btn-sm btn-primary" onclick="addPerson()">+ Add Person</button>
+    <select id="discord-member-select" style="flex:1;min-width:180px" onchange="addDiscordMember(this)"></select>
+  </div>
+  <div style="margin-top:8px;padding-top:8px;border-top:1px solid #2a2a5a;">
+    <div class="section-title">Add from pool</div>
+    <div style="display:flex;gap:6px;">
+      <input id="pool-search" placeholder="Search…" style="flex:1;background:#12122e;color:#e0e0e0;border:1px solid #3a3a6a;border-radius:4px;padding:4px 8px;font-size:0.85rem;" oninput="filterPool()">
+      <select id="pool-select" style="flex:2;background:#12122e;color:#e0e0e0;border:1px solid #3a3a6a;border-radius:4px;padding:4px 8px;font-size:0.85rem;">
+        <option value="">— Select —</option>
+      </select>
+      <button class="btn btn-sm btn-primary" onclick="addPoolPerson()">Add</button>
+    </div>
   </div>
       </div>
 
@@ -231,6 +249,8 @@ const ROLES = [
 
 let people = [];
 let lastParties = [];
+let poolPeople = [];
+let activeParty = 'Default';
 
 function parseJobEntry(e) {
   const parts = e.split(':');
@@ -263,7 +283,10 @@ function roleOptGroup(key, label) {
     ? JOBS.filter(j => j.role === 'healer')
     : JOBS.filter(j => j.sub === key);
   if (!jobs.length) return '';
-  return `<optgroup label="${label}">${jobs.map(j => jobOpt(j.id, j)).join('')}</optgroup>`;
+  return `<optgroup label="${label}">
+    <option value="__all_${key}">✨ All ${label}s</option>
+    ${jobs.map(j => jobOpt(j.id, j)).join('')}
+  </optgroup>`;
 }
 
 function renderPeople() {
@@ -304,6 +327,20 @@ function removePerson(i) {
 
 function addJob(pi, jid) {
   if (!jid) return;
+  if (jid.startsWith('__all_')) {
+    const key = jid.replace('__all_', '');
+    const ids = key === 'healer'
+      ? JOBS.filter(j => j.role === 'healer').map(j => j.id)
+      : JOBS.filter(j => j.sub === key).map(j => j.id);
+    const parsed = people[pi].jobs.map(e => parseJobEntry(e));
+    for (const id of ids) {
+      if (!parsed.some(p => p.id === id)) parsed.push({id, priority: 5});
+    }
+    people[pi].jobs = parsed.map(jobToString);
+    renderPeople();
+    savePeople();
+    return;
+  }
   const j = parseJobEntry(jid);
   const parsed = people[pi].jobs.map(e => parseJobEntry(e));
   if (!parsed.some(p => p.id === j.id)) {
@@ -496,6 +533,102 @@ function exportTxt() {
   URL.revokeObjectURL(a.href);
 }
 
+// ── Party management ──────────────────────────────────────────────────
+
+async function fetchParties() {
+  const r = await fetch('/api/parties');
+  if (!r.ok) return;
+  const data = await r.json();
+  activeParty = data.active;
+  const sel = document.getElementById('party-select');
+  sel.innerHTML = data.parties.map(n => `<option value="${n}"${n === data.active ? ' selected' : ''}>${n}</option>`).join('');
+  document.getElementById('delete-party-btn').style.display = data.active === 'Default' ? 'none' : 'inline-block';
+}
+
+async function switchParty(name) {
+  await fetch('/api/parties/switch', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name})
+  });
+  activeParty = name;
+  await Promise.all([fetchPeople(), fetchConstraints(), fetchExclusions(), fetchPool()]);
+  fetchParties();
+}
+
+async function createParty() {
+  const input = document.getElementById('new-party-name');
+  const name = input.value.trim();
+  if (!name) return;
+  await fetch('/api/parties', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name})
+  });
+  input.value = '';
+  await switchParty(name);
+}
+
+async function deleteCurrentParty() {
+  if (!confirm(`Delete party "${activeParty}"?`)) return;
+  await fetch('/api/parties/delete', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: activeParty})
+  });
+  await switchParty('Default');
+}
+
+// ── Pool management ───────────────────────────────────────────────────
+
+async function fetchPool() {
+  const r = await fetch('/api/people-pool');
+  if (!r.ok) return;
+  poolPeople = await r.json();
+  filterPool();
+}
+
+function filterPool() {
+  const q = document.getElementById('pool-search').value.toLowerCase().trim();
+  const inParty = new Set(people.map(p => p.name));
+  const filtered = poolPeople.filter(p => !inParty.has(p.name) && (!q || p.name.toLowerCase().includes(q)));
+  const sel = document.getElementById('pool-select');
+  sel.innerHTML = '<option value="">— Select —</option>' +
+    filtered.map(p => `<option value="${p.name}">${p.name}${p.discord_id ? ' ⬡' : ''}${p.jobs.length ? ` [${p.jobs.map(j => j.split(':')[0].toUpperCase()).join(',')}]` : ''}</option>`).join('');
+  sel.disabled = filtered.length === 0;
+}
+
+async function addPoolPerson() {
+  const sel = document.getElementById('pool-select');
+  if (!sel.value) return;
+  const name = sel.value;
+  await fetch('/api/people-pool/add', {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name})
+  });
+  sel.value = '';
+  await fetchPeople();
+  filterPool();
+}
+
+async function fetchMembers() {
+  const sel = document.getElementById('discord-member-select');
+  sel.innerHTML = '<option value="">Add from Discord…</option>';
+  const r = await fetch('/api/members');
+  if (!r.ok) return;
+  const members = await r.json();
+  for (const m of members) {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.dataset.name = m.name;
+    opt.textContent = m.name;
+    sel.appendChild(opt);
+  }
+}
+
+function addDiscordMember(sel) {
+  if (!sel.value) return;
+  const name = sel.options[sel.selectedIndex].dataset.name;
+  const discordId = sel.value;
+  people.push({name, discord_id: discordId, jobs: []});
+  sel.value = '';
+  renderPeople();
+  savePeople();
+}
+
 async function fetchChannels() {
   const r = await fetch('/api/channels');
   if (!r.ok) return;
@@ -569,10 +702,13 @@ function showStatus(msg, type) {
 }
 
 fetchUser();
+fetchParties();
 fetchPeople();
 fetchConstraints();
 fetchExclusions();
+fetchMembers();
 fetchChannels();
+fetchPool();
 </script>
 </body>
 </html>
