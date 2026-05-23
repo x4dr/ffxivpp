@@ -43,12 +43,12 @@ def get_priority(entry: str) -> int:
 def analyze_constraints(people: list[Person], constraints: Constraints) -> list[str]:
     reasons = []
     c = constraints
-    
+
     # 1. Total people check
     if len(people) < 8:
         reasons.append(f"Not enough people: have {len(people)}, need 8")
         return reasons # Stop here, can't form a party
-        
+
     # 2. Check available jobs
     all_possible_jobs = set()
     for p in people:
@@ -56,23 +56,30 @@ def analyze_constraints(people: list[Person], constraints: Constraints) -> list[
             job = JOBS_BY_ID.get(parse_job_id(entry))
             if job:
                 all_possible_jobs.add(job.id)
-                
+
     # 3. Role availability
     available_tanks = sum(1 for j in JOBS if j.id in all_possible_jobs and j.role == 'tank')
     available_healers = sum(1 for j in JOBS if j.id in all_possible_jobs and j.role == 'healer')
     available_dps = sum(1 for j in JOBS if j.id in all_possible_jobs and j.role == 'dps')
-    
+
     if c.std_comp:
-        if available_tanks < 2: reasons.append("Not enough tanks possible (need 2)")
-        if available_healers < 2: reasons.append("Not enough healers possible (need 2)")
-        if available_dps < 4: reasons.append("Not enough DPS possible (need 4)")
+        if available_tanks < 2:
+            reasons.append("Not enough tanks possible (need 2)")
+        if available_healers < 2:
+            reasons.append("Not enough healers possible (need 2)")
+        if available_dps < 4:
+            reasons.append("Not enough DPS possible (need 4)")
 
     # 4. Check specific role/sub-role pools
     def get_count(role, sub=None, dps_type=None):
-        return sum(1 for j in JOBS if j.role == role and (not sub or j.sub == sub) and (not dps_type or j.dps_type == dps_type))
-        
-    if c.min_melee > get_count('dps', sub='melee'): reasons.append("Too many melee required")
-        
+        return sum(
+            1 for j in JOBS
+            if j.role == role and (not sub or j.sub == sub) and (not dps_type or j.dps_type == dps_type)
+        )
+
+    if c.min_melee > get_count('dps', sub='melee'):
+        reasons.append("Too many melee required")
+
     return reasons
 
 
@@ -129,7 +136,7 @@ def compute_parties(people: list[Person], constraints: Constraints) -> list[list
         remaining_people = len(people) - idx
         # Remaining needed:
         needed = 8 - len(assigned)
-        
+
         # Option 1: Bench this person (if we have enough people left)
         if remaining_people > needed:
             dfs(idx + 1, assigned)
@@ -212,7 +219,7 @@ def compute_parties_stream(
                 "total": total_space, "remaining": remaining,
             })
             last_report = now
-            
+
         if len(assigned) == 8:
             jobs_only = [job for p, job in assigned]
             if valid(jobs_only):
@@ -228,13 +235,13 @@ def compute_parties_stream(
                     members.append({"name": p.name, "job": j.name, "role": j.role})
                 results.append({"score": score, "members": members})
             return
-            
+
         if idx == len(people):
             return
 
         remaining_people = len(people) - idx
         needed = 8 - len(assigned)
-        
+
         # Option 1: Bench
         if remaining_people > needed:
             yield from dfs(idx + 1, assigned)

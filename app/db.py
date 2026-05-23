@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import contextlib
 import json
+import logging
 import os
 import sqlite3
 import time
-import logging
-import contextlib
+from collections.abc import Generator
+from datetime import UTC
 from pathlib import Path
-from typing import Any, cast, Generator
+from typing import Any, cast
 
 from flask import g, has_app_context
 
@@ -31,7 +33,7 @@ def _connect() -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     # Set busy timeout to 3 seconds
     conn.execute("PRAGMA busy_timeout = 3000")
-    
+
     # Store start time in global dictionary using connection ID as key
     _conn_start_times[id(conn)] = time.time()
     logger.debug(f"Database connection opened: {id(conn)}")
@@ -74,8 +76,8 @@ def close_db(e: Any = None, conn: sqlite3.Connection | None = None) -> None:
 
 
 def _table_has_col(table: str, col: str) -> bool:
-    cols = get_db().execute(f"PRAGMA table_info({table!r})").fetchall()
-    return any(r["name"] == col for r in cols)
+    rows = cast(list[sqlite3.Row], get_db().execute(f"PRAGMA table_info({table!r})").fetchall())
+    return any(r["name"] == col for r in rows)
 
 
 def init_db() -> None:
@@ -134,7 +136,7 @@ def init_db() -> None:
             INSERT OR IGNORE INTO parties (name) VALUES ('Default');
             INSERT OR IGNORE INTO app_state (key, value) VALUES ('active_party', 'Default');
         """)
-        
+
         if not _table_has_col("parties", "home_channel_id"):
             db.execute("ALTER TABLE parties ADD COLUMN home_channel_id TEXT")
         if not _table_has_col("parties", "home_message_id"):
@@ -169,12 +171,13 @@ def init_db() -> None:
 # ── Scraper Tasks ────────────────────────────────────────────────────────
 
 def add_scraper_task(lodestone_id: str, priority: int = 1) -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     with db_connection() as db:
         db.execute(
-            "INSERT OR IGNORE INTO scraper_tasks (lodestone_id, priority, created_at) VALUES (?, ?, ?)",
+            "INSERT OR IGNORE INTO scraper_tasks (lodestone_id, priority, created_at) "
+            "VALUES (?, ?, ?)",
             (lodestone_id, priority, now),
         )
         db.commit()
@@ -208,10 +211,10 @@ def parties_list() -> list[str]:
         return [r["name"] for r in rows]
 
 
-def get_parties_details() -> list[dict[str, Any]]:
+def get_parties_details() -> list[dict[str, str | None]]:
     with db_connection() as db:
-        rows = db.execute("SELECT name, home_channel_id FROM parties ORDER BY name").fetchall()
-        return [{"name": r["name"], "home_channel_id": r["home_channel_id"]} for r in rows]
+        rows = cast(list[sqlite3.Row], db.execute("SELECT name, home_channel_id FROM parties ORDER BY name").fetchall())
+        return [{"name": str(r["name"]), "home_channel_id": r["home_channel_id"] if r["home_channel_id"] is not None else None} for r in rows]
 
 
 def create_party(name: str) -> None:
@@ -438,9 +441,9 @@ def bot_owner_id() -> str | None:
 
 
 def set_lodestone_link(person_id: int, lodestone_id: str, character_name: str | None = None) -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     with db_connection() as db:
         db.execute(
             "INSERT INTO lodestone_links (person_id, lodestone_id, character_name, fetched_at) VALUES (?, ?, ?, ?) "
@@ -451,9 +454,9 @@ def set_lodestone_link(person_id: int, lodestone_id: str, character_name: str | 
 
 
 def update_lodestone_fetched_at(lodestone_id: str) -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     with db_connection() as db:
         db.execute(
             "UPDATE lodestone_links SET fetched_at = ? WHERE lodestone_id = ?",
@@ -474,9 +477,9 @@ def get_lodestone_link(person_id: int) -> dict[str, Any] | None:
 
 
 def cache_character(lodestone_id: str, data: dict[str, Any]) -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     with db_connection() as db:
         db.execute(
             "INSERT OR REPLACE INTO character_cache (lodestone_id, data, fetched_at) VALUES (?, ?, ?)",
