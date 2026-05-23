@@ -126,6 +126,11 @@ def init_db() -> None:
                 person_name TEXT NOT NULL REFERENCES people(name) ON DELETE CASCADE,
                 PRIMARY KEY (party_name, person_name)
             );
+            CREATE TABLE IF NOT EXISTS scraper_tasks (
+                lodestone_id TEXT PRIMARY KEY,
+                priority INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
+            );
             INSERT OR IGNORE INTO parties (name) VALUES ('Default');
             INSERT OR IGNORE INTO app_state (key, value) VALUES ('active_party', 'Default');
         """)
@@ -150,6 +155,7 @@ def init_db() -> None:
             ("max_selfish", "4"),
             ("min_utility", "0"),
             ("max_utility", "4"),
+            ("min_gear_level", "0"),
         ]
         for k, v in default_cfg:
             db.execute(
@@ -160,7 +166,34 @@ def init_db() -> None:
         db.commit()
 
 
-# ── Party management ─────────────────────────────────────────────────────
+# ── Scraper Tasks ────────────────────────────────────────────────────────
+
+def add_scraper_task(lodestone_id: str, priority: int = 1) -> None:
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    with db_connection() as db:
+        db.execute(
+            "INSERT OR IGNORE INTO scraper_tasks (lodestone_id, priority, created_at) VALUES (?, ?, ?)",
+            (lodestone_id, priority, now),
+        )
+        db.commit()
+
+
+def get_next_scraper_task() -> dict[str, Any] | None:
+    with db_connection() as db:
+        row = db.execute(
+            "SELECT lodestone_id, priority FROM scraper_tasks ORDER BY priority DESC, created_at ASC LIMIT 1"
+        ).fetchone()
+        if not row:
+            return None
+        return {"lodestone_id": row["lodestone_id"], "priority": row["priority"]}
+
+
+def delete_scraper_task(lodestone_id: str) -> None:
+    with db_connection() as db:
+        db.execute("DELETE FROM scraper_tasks WHERE lodestone_id = ?", (lodestone_id,))
+        db.commit()
 
 
 def active_party_name() -> str:

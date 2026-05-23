@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+import json
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ class Constraints:
     min_melee: int = 0
     min_pranged: int = 0
     min_caster: int = 0
+    min_gear_level: int = 0
     min_selfish: int = 0
     max_selfish: int = 4
     min_utility: int = 0
@@ -61,6 +63,7 @@ class Constraints:
             min_melee=int(data.get("min_melee", 0)),
             min_pranged=int(data.get("min_pranged", 0)),
             min_caster=int(data.get("min_caster", 0)),
+            min_gear_level=int(data.get("min_gear_level", 0)),
             min_selfish=int(data.get("min_selfish", 0)),
             max_selfish=int(data.get("max_selfish", 4)),
             min_utility=int(data.get("min_utility", 0)),
@@ -79,6 +82,7 @@ class Constraints:
             "min_melee": self.min_melee,
             "min_pranged": self.min_pranged,
             "min_caster": self.min_caster,
+            "min_gear_level": self.min_gear_level,
             "min_selfish": self.min_selfish,
             "max_selfish": self.max_selfish,
             "min_utility": self.min_utility,
