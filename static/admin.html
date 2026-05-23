@@ -110,7 +110,6 @@
         <div id="people-editor"></div>
   <div class="btn-group">
     <button class="btn btn-sm btn-primary" onclick="addPerson()">+ Add Person</button>
-    <select id="discord-member-select" style="flex:1;min-width:180px" onchange="addDiscordMember(this)"></select>
   </div>
   <div style="margin-top:8px;padding-top:8px;border-top:1px solid #2a2a5a;">
     <div class="section-title">Add from pool</div>
@@ -604,31 +603,6 @@ async function addPoolPerson() {
   filterPool();
 }
 
-async function fetchMembers() {
-  const sel = document.getElementById('discord-member-select');
-  sel.innerHTML = '<option value="">Add from Discord…</option>';
-  const r = await fetch('/api/members');
-  if (!r.ok) return;
-  const members = await r.json();
-  for (const m of members) {
-    const opt = document.createElement('option');
-    opt.value = m.id;
-    opt.dataset.name = m.name;
-    opt.textContent = m.name;
-    sel.appendChild(opt);
-  }
-}
-
-function addDiscordMember(sel) {
-  if (!sel.value) return;
-  const name = sel.options[sel.selectedIndex].dataset.name;
-  const discordId = sel.value;
-  people.push({name, discord_id: discordId, jobs: []});
-  sel.value = '';
-  renderPeople();
-  savePeople();
-}
-
 async function fetchChannels() {
   const r = await fetch('/api/channels');
   if (!r.ok) return;
@@ -706,7 +680,6 @@ fetchParties();
 fetchPeople();
 fetchConstraints();
 fetchExclusions();
-fetchMembers();
 fetchChannels();
 fetchPool();
 </script>
