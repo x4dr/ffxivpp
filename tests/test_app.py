@@ -16,10 +16,10 @@ def client():
     app.config["TESTING"] = True
     with app.test_client() as c:
         with app.app_context():
-            from app.db import get_db, init_db
+            from app.db import Session, init_db
             init_db()
             yield c
-            get_db().close()
+            Session.remove()
     os.close(db_fd)
     os.unlink(db_path)
     del os.environ["DATABASE_PATH"]

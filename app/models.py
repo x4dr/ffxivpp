@@ -1,10 +1,14 @@
-from dataclasses import dataclass
-from typing import Any, List, Optional
+from __future__ import annotations
+
+from typing import Any, Optional
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey, String, Integer, Text
 
 # --- Dataclasses for Compute ---
-@dataclass
+from dataclasses import dataclass, field
+import json
+
+@dataclass(frozen=True)
 class Job:
     id: str
     name: str
@@ -15,7 +19,7 @@ class Job:
 @dataclass
 class Person:
     name: str
-    jobs: List[str]
+    jobs: list[str] = field(default_factory=list)
     discord_id: Optional[str] = None
 
 @dataclass
@@ -40,27 +44,52 @@ class Constraints:
     min_utility: int = 0
     max_utility: int = 4
     min_gear_level: int = 0
-    exclusions: List[List[str]] = None  # type: ignore
+    exclusions: list[list[str]] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "Constraints":
+    def from_dict(cls, data: dict[str, Any]) -> Constraints:
+        raw = data.get("exclusions", [])
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                raw = []
         return cls(
-            std_comp=d.get("std_comp", True),
-            no_dupes=d.get("no_dupes", True),
-            heal_mix=d.get("heal_mix", False),
-            max_melee=d.get("max_melee", 4),
-            max_pranged=d.get("max_pranged", 4),
-            max_caster=d.get("max_caster", 4),
-            min_melee=d.get("min_melee", 0),
-            min_pranged=d.get("min_pranged", 0),
-            min_caster=d.get("min_caster", 0),
-            min_selfish=d.get("min_selfish", 0),
-            max_selfish=d.get("max_selfish", 4),
-            min_utility=d.get("min_utility", 0),
-            max_utility=d.get("max_utility", 4),
-            min_gear_level=d.get("min_gear_level", 0),
-            exclusions=d.get("exclusions", []),
+            std_comp=bool(data.get("std_comp", True)),
+            no_dupes=bool(data.get("no_dupes", True)),
+            heal_mix=bool(data.get("heal_mix", False)),
+            max_melee=int(data.get("max_melee", 4)),
+            max_pranged=int(data.get("max_pranged", 4)),
+            max_caster=int(data.get("max_caster", 4)),
+            min_melee=int(data.get("min_melee", 0)),
+            min_pranged=int(data.get("min_pranged", 0)),
+            min_caster=int(data.get("min_caster", 0)),
+            min_selfish=int(data.get("min_selfish", 0)),
+            max_selfish=int(data.get("max_selfish", 4)),
+            min_utility=int(data.get("min_utility", 0)),
+            max_utility=int(data.get("max_utility", 4)),
+            min_gear_level=int(data.get("min_gear_level", 0)),
+            exclusions=raw,
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "std_comp": self.std_comp,
+            "no_dupes": self.no_dupes,
+            "heal_mix": self.heal_mix,
+            "max_melee": self.max_melee,
+            "max_pranged": self.max_pranged,
+            "max_caster": self.max_caster,
+            "min_melee": self.min_melee,
+            "min_pranged": self.min_pranged,
+            "min_caster": self.min_caster,
+            "min_selfish": self.min_selfish,
+            "max_selfish": self.max_selfish,
+            "min_utility": self.min_utility,
+            "max_utility": self.max_utility,
+            "min_gear_level": self.min_gear_level,
+            "exclusions": self.exclusions,
+        }
 
 # --- SQLAlchemy Models ---
 class Base(DeclarativeBase):
@@ -71,7 +100,7 @@ class Party(Base):
     name: Mapped[str] = mapped_column(String, primary_key=True)
     home_channel_id: Mapped[Optional[str]] = mapped_column(Text)
     home_message_id: Mapped[Optional[str]] = mapped_column(Text)
-    members: Mapped[List["PartyPerson"]] = relationship("PartyPerson", back_populates="party", cascade="all, delete-orphan")
+    members: Mapped[list["PartyPerson"]] = relationship("PartyPerson", back_populates="party", cascade="all, delete-orphan")
 
 class PersonModel(Base):
     __tablename__ = "people"

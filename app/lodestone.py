@@ -57,7 +57,7 @@ def fetch_character(lodestone_id: str) -> dict[str, Any]:
         fetched_at = cached.get("fetched_at", "") or ""
         if fetched_at:
             try:
-                ts = datetime.fromisoformat(fetched_at)
+                ts = datetime.fromisoformat(fetched_at).replace(tzinfo=UTC)
                 if datetime.now(UTC) - ts < CACHE_TTL:
                     return cached
             except ValueError:
