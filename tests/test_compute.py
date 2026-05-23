@@ -1,13 +1,7 @@
-"""Tests for compute_parties engine."""
-
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-from app import Constraints, Person, compute_parties
+from app.compute import compute_parties
+from app.models import Constraints, Person
 
 
 def _p(name: str, *jobs: str) -> Person:
@@ -62,12 +56,28 @@ def test_dps_subrole_min() -> None:
     assert len(compute_parties(people, Constraints(min_caster=1))) > 0
 
 
+def test_selfish_utility() -> None:
+    people = [_p("A", "pld"), _p("B", "war"), _p("C", "whm"), _p("D", "sch"),
+              _p("E", "sam"), _p("F", "drg"), _p("G", "nin"), _p("H", "brd")]
+    assert len(compute_parties(people, Constraints(min_selfish=1))) > 0
+    assert len(compute_parties(people, Constraints(max_selfish=0))) == 0
+    assert len(compute_parties(people, Constraints(min_utility=3))) > 0
+    assert len(compute_parties(people, Constraints(max_utility=2))) == 0
+
+
 def test_std_comp_off() -> None:
-    """With std_comp off, a 3-healer party is valid (no_dupes blocks it here)."""
     people = [_p("A", "pld"), _p("B", "war"), _p("C", "whm"), _p("D", "sch"),
               _p("E", "ast"), _p("F", "mnk"), _p("G", "blm"), _p("H", "nin")]
     assert len(compute_parties(people, Constraints(std_comp=False))) > 0
     assert len(compute_parties(people, Constraints(std_comp=True))) == 0
+
+
+def test_exclusions() -> None:
+    people = [_p("A", "pld"), _p("B", "war"), _p("C", "whm"), _p("D", "sch"),
+              _p("E", "sam"), _p("F", "vpr"), _p("G", "brd"), _p("H", "blm")]
+    assert len(compute_parties(people, Constraints(exclusions=[["sam", "vpr"]]))) == 0
+    assert len(compute_parties(people, Constraints(exclusions=[["sam", "blm"]]))) == 0
+    assert len(compute_parties(people, Constraints(exclusions=[["sam", "mnk"]]))) > 0
 
 
 def test_empty_jobs() -> None:

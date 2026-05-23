@@ -1,0 +1,14 @@
+[Unit]
+Description=FF14 Party Planner — Discord Bot
+After=network.target
+[Service]
+Type=simple
+User=YOUR_USER
+Group=YOUR_USER
+WorkingDirectory=/path/to/ffxivpp
+ExecStart=/path/to/ffxivpp/.venv/bin/python bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

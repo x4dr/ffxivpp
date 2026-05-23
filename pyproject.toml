@@ -6,7 +6,9 @@ requires-python = ">=3.12"
 dependencies = [
     "discord-py>=2.7.1",
     "flask>=3.1.3",
+    "gunicorn>=23.0.0",
     "python-dotenv>=1.2.2",
+    "flask-discord>=0.1.64",
 ]
 
 [dependency-groups]
@@ -19,11 +21,12 @@ dev = [
 [tool.mypy]
 strict = true
 python_version = "3.12"
-exclude = ["bot/bot.py"]
+exclude = ["bot/", "tests/"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]

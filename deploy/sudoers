@@ -1,0 +1,3 @@
+# Install: sudo cp deploy/sudoers /etc/sudoers.d/ffxiv-pp && sudo chmod 440 /etc/sudoers.d/ffxiv-pp
+# Ensures the Flask app (running as YOUR_USER) can restart services without a password prompt.
+YOUR_USER ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ffxiv-flask, /usr/bin/systemctl restart ffxiv-bot

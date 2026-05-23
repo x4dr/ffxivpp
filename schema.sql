@@ -1,7 +1,8 @@
 CREATE TABLE IF NOT EXISTS people (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE,
-  jobs TEXT NOT NULL
+  name TEXT NOT NULL,
+  jobs TEXT NOT NULL,
+  discord_id TEXT
 );
 
 CREATE TABLE IF NOT EXISTS constraint_config (
@@ -18,4 +19,19 @@ INSERT OR IGNORE INTO constraint_config (id, value) VALUES
   ('max_caster', '4'),
   ('min_melee', '0'),
   ('min_pranged', '0'),
-  ('min_caster', '0');
+  ('min_caster', '0'),
+  ('min_selfish', '0'),
+  ('max_selfish', '4'),
+  ('min_utility', '0'),
+  ('max_utility', '4');
+
+CREATE TABLE IF NOT EXISTS admin_roles (
+  guild_id TEXT NOT NULL,
+  role_id TEXT NOT NULL,
+  PRIMARY KEY (guild_id, role_id)
+);
+
+CREATE TABLE IF NOT EXISTS exclusions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  jobs TEXT NOT NULL
+);
