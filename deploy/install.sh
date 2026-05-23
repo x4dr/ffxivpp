@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Install script for FF14 Party Planner
-# Run from repo root:  sudo bash deploy/install.sh
+# Usage: sudo bash deploy/install.sh
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-USER_NAME="$(whoami)"
+USER_NAME="${SUDO_USER:-$(whoami)}"
 
 if [[ "$EUID" -ne 0 ]]; then
   echo "This must be run as root (sudo bash deploy/install.sh)" >&2
