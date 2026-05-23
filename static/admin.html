@@ -379,39 +379,52 @@ async function computeParties() {
   const c = document.getElementById('results');
   btn.disabled = true;
   btn.textContent = 'Computing…';
-  c.innerHTML = '<div class="empty-state"><p style="color:#4a9eff;">⏳ Computing party combinations…</p></div>';
-  const r = await fetch('/api/compute', { method: 'POST' });
-  const result = await r.json();
-  btn.disabled = false;
-  btn.textContent = 'Compute';
-  if (result.error) { c.innerHTML = `<div class="empty-state"><p>${result.error}</p></div>`; return; }
-  if (!result.count) { c.innerHTML = '<div class="empty-state"><p>No valid combinations.</p></div>'; return; }
+  c.innerHTML = '<div class="empty-state"><p style="color:#4a9eff;">⏳ Computing…</p></div>';
 
-  const total = result.count;
-  const limit = result.parties.length;
-  const totalStr = total > limit ? `Showing first ${limit} of ${total.toLocaleString()}` : `${total.toLocaleString()} total`;
+  const source = new EventSource('/api/compute/stream');
+  let found = 0, explored = 0;
 
-  let h = `<div class="results-header">
-    <span class="results-count">${total.toLocaleString()} combinations (${totalStr})</span>
-    <button class="btn btn-sm btn-primary" onclick="exportTxt()">Export TXT</button>
-  </div><div class="combinations-list">`;
+  source.addEventListener('progress', (e) => {
+    const d = JSON.parse(e.data);
+    found = d.found;
+    explored = d.explored;
+    c.innerHTML = `<div class="empty-state"><p style="color:#4a9eff;">⏳ Found ${found.toLocaleString()} parties, explored ${explored.toLocaleString()} combinations…</p></div>`;
+  });
 
-  for (let i = 0; i < limit; i++) {
-    const party = result.parties[i];
-    h += `<div class="combo-card">
-      <div style="font-size:0.65rem;color:#666;margin-bottom:2px;">Party ${i + 1}</div>`;
-    for (const p of party) {
-      h += `<div class="combo-person">
-        <span class="pname">${p.name}</span>
-        <span class="combo-job ${p.role}">${p.job}</span>
-      </div>`;
+  source.addEventListener('complete', (e) => {
+    const result = JSON.parse(e.data);
+    source.close();
+    btn.disabled = false;
+    btn.textContent = 'Compute';
+
+    const total = result.found;
+    const limit = result.parties ? result.parties.length : 0;
+    if (!total) { c.innerHTML = '<div class="empty-state"><p>No valid combinations.</p></div>'; return; }
+
+    const totalStr = total > limit ? `Showing first ${limit} of ${total.toLocaleString()}` : `${total.toLocaleString()} total`;
+
+    let h = `<div class="results-header">
+      <span class="results-count">${total.toLocaleString()} combinations (${totalStr})</span>
+      <button class="btn btn-sm btn-primary" onclick="exportTxt()">Export TXT</button>
+    </div><div class="combinations-list">`;
+
+    for (let i = 0; i < limit; i++) {
+      const party = result.parties[i];
+      h += `<div class="combo-card">
+        <div style="font-size:0.65rem;color:#666;margin-bottom:2px;">Party ${i + 1}</div>`;
+      for (const p of party) {
+        h += `<div class="combo-person">
+          <span class="pname">${p.name}</span>
+          <span class="combo-job ${p.role}">${p.job}</span>
+        </div>`;
+      }
+      h += `</div>`;
     }
-    h += `</div>`;
-  }
-  h += '</div>';
-  c.innerHTML = h;
-  lastParties = result.parties;
-  showStatus(`Found ${total.toLocaleString()} valid party combinations.`, 'ok');
+    h += '</div>';
+    c.innerHTML = h;
+    lastParties = result.parties;
+    showStatus(`Found ${total.toLocaleString()} valid party combinations.`, 'ok');
+  });
 }
 
 function exportTxt() {

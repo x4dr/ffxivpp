@@ -1,13 +1,23 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
+from collections.abc import Generator
 from pathlib import Path
 
-from flask import Blueprint, Response, jsonify, make_response, request, send_from_directory
+from flask import (
+    Blueprint,
+    Response,
+    jsonify,
+    make_response,
+    request,
+    send_from_directory,
+    stream_with_context,
+)
 
 from app.auth import get_discord, require_admin
-from app.compute import JOBS, compute_parties
+from app.compute import JOBS, compute_parties, compute_parties_stream
 from app.db import constraints_from_db, constraints_to_db, people_from_db, people_to_db
 from app.models import Constraints, Person
 
@@ -99,6 +109,25 @@ def api_compute() -> Response:
 
 
 REPO_DIR = Path(__file__).resolve().parent.parent
+
+
+@bp.route("/api/compute/stream")
+def api_compute_stream() -> Response:
+    raw = people_from_db()
+    if not raw:
+        return make_response(jsonify({"error": "no people configured"}), 400)
+    people = [Person(p["name"], p["jobs"]) for p in raw]
+    constraints = Constraints.from_dict(constraints_from_db())
+
+    def generate() -> Generator:
+        for event, data in compute_parties_stream(people, constraints):
+            yield f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
 
 
 @bp.route("/webhook/deploy", methods=["POST"])
