@@ -16,7 +16,7 @@ from flask import (
     stream_with_context,
 )
 
-from app.auth import _bot_api, _guild_id, check_access, get_discord, require_admin
+from app.auth import _bot_api, _guild_id, check_access, get_discord, require_admin, require_party_member
 from app.compute import JOBS, JOBS_BY_ID, compute_parties, compute_parties_stream
 from app.db import (
     active_party_name,
@@ -58,7 +58,7 @@ def api_me() -> Response:
         if member:
             name = member.get("nick") or member.get("user", {}).get("global_name") or name
 
-    return jsonify({"id": user_id, "name": name, "avatar": user.avatar_url})
+    return jsonify({"id": user_id, "name": name, "avatar": user.avatar_url, "is_admin": check_access()})
 
 
 @bp.route("/api/jobs")
@@ -331,45 +331,39 @@ def api_polls() -> Response:
     return make_response(jsonify({"error": "failed to post poll"}), 500)
 
 
-@bp.route("/webhook/deploy", methods=["POST"])
-def webhook_deploy() -> Response:
-    secret = request.headers.get("X-Deploy-Secret", "")
-    expected = os.environ.get("DEPLOY_SECRET", "")
-    if not expected or secret != expected:
-        return make_response(jsonify({"error": "unauthorized"}), 401)
-
-    logs: list[str] = []
-    try:
-        result = subprocess.run(
-            ["git", "pull"],
-            capture_output=True, text=True, timeout=60, cwd=REPO_DIR,
-        )
-        logs.append(f"git pull: {result.stdout.strip()}")
-        if result.returncode != 0:
-            logs.append(f"stderr: {result.stderr.strip()}")
-            return jsonify({"ok": False, "logs": logs})
-    except subprocess.TimeoutExpired:
-        return jsonify({"ok": False, "logs": [*logs, "git pull timed out"]})
-
-    for svc in ("ffxiv-flask", "ffxiv-bot"):
-        try:
-            subprocess.run(
-                ["sudo", "systemctl", "restart", svc],
-                capture_output=True, text=True, timeout=30,
-            )
-            logs.append(f"{svc} restarted")
-        except subprocess.TimeoutExpired:
-            logs.append(f"{svc} restart timed out")
-
-    return jsonify({"ok": True, "logs": logs})
-
-
-@bp.route("/admin")
+@bp.route("/api/channels")
 @require_admin
-def admin() -> Response:
-    return send_from_directory(str(STATIC_DIR), "admin.html")
+def api_channels() -> Response:
+    from app.auth import _bot_api, _guild_id
+    guild_id = _guild_id()
+    if not guild_id:
+        return make_response(jsonify({"error": "no guild configured"}), 400)
+    data = _bot_api("GET", f"/guilds/{guild_id}/channels")
+    if not data:
+        return make_response(jsonify({"error": "failed to fetch channels"}), 500)
+    # Filter to only text channels (type 0)
+    channels = [{"id": c["id"], "name": c["name"]} for c in data if c.get("type") == 0]
+    return jsonify(channels)
+
+
+@bp.route("/dashboard")
+@require_admin
+def dashboard() -> Response:
+    return send_from_directory(str(STATIC_DIR), "partydashboard.html")
+
+
+@bp.route("/party")
+@bp.route("/party/")
+def party_index() -> Response:
+    return make_response("Please specify a party name. Example: /party/my_party", 404)
+
+
+@bp.route("/party/<party_name>")
+@require_party_member
+def party_dashboard(party_name: str) -> Response:
+    return send_from_directory(str(STATIC_DIR), "partydashboard.html")
 
 
 @bp.route("/")
 def index() -> Response:
-    return make_response('<a href="/admin">Go to Party Planner Dashboard</a>')
+    return make_response('<a href="/dashboard">Go to Party Planner Dashboard</a>')

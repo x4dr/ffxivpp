@@ -67,6 +67,8 @@ class PartyBot(discord.Client):
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self) -> None:
+        if not os.environ.get("BASE_URL"):
+            raise RuntimeError("BASE_URL environment variable must be set before starting the bot.")
         self.add_view(PersistentPartyView())
         guild_id = os.environ.get("GUILD_ID")
         if guild_id:
@@ -236,10 +238,9 @@ def _build_job_list(jobs: list[str]) -> str:
     parts: list[str] = []
     for entry in jobs:
         jid = parse_job_id(entry)
-        prio = get_priority(entry)
         name = JOB_NAMES.get(jid, jid.upper())
-        parts.append(f"{name}[{prio}]")
-    return ", ".join(parts) if parts else "*none*"
+        parts.append(name)
+    return "/".join(parts) if parts else "*none*"
 
 
 # ── /setjobs (interactive UI) ──────────────────────────────────────────
@@ -504,15 +505,98 @@ class RecheckButton(Button):
             
         add_scraper_task(link['lodestone_id'], priority=1)
         await interaction.response.send_message("Recheck task added to queue.", ephemeral=True)
+        await asyncio.sleep(10)
+        try:
+            await interaction.delete_original_response()
+        except discord.NotFound:
+            pass
+
+
+class DashboardButton(Button):
+    def __init__(self) -> None:
+        super().__init__(label="Dashboard", style=discord.ButtonStyle.secondary, custom_id="party_dashboard")
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        url = PersistentPartyView()._get_dashboard_url("")
+        await interaction.response.send_message(f"Dashboard: {url}", ephemeral=True)
 
 
 class PersistentPartyView(View):
     def __init__(self) -> None:
         super().__init__(timeout=None)
-        self.add_item(Button(label="Join", style=discord.ButtonStyle.success, custom_id="party_join"))
-        self.add_item(Button(label="Leave", style=discord.ButtonStyle.danger, custom_id="party_leave"))
         self.add_item(RecheckButton())
-        self.add_item(Button(label="Dashboard", style=discord.ButtonStyle.link, url=os.environ.get("BASE_URL", "http://localhost:5000")))
+        self.add_item(DashboardButton())
+
+    @discord.ui.button(label="Join", style=discord.ButtonStyle.success, custom_id="party_join")
+    async def party_join(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        from app.db import add_person_to_party
+        logging.info(f"Join button clicked by {interaction.user.display_name} (ID: {interaction.user.id})")
+        party_name = interaction.message.embeds[0].title.replace("Party: ", "")
+        add_person_to_party(interaction.user.display_name, str(interaction.user.id), party_name)
+        logging.info(f"User {interaction.user.display_name} added to party {party_name}")
+        await interaction.response.defer()
+        await self.update_embed(interaction.channel, interaction.message)
+
+    @discord.ui.button(label="Leave", style=discord.ButtonStyle.danger, custom_id="party_leave")
+    async def party_leave(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        from app.db import remove_person_from_party
+        logging.info(f"Leave button clicked by {interaction.user.display_name}")
+        party_name = interaction.message.embeds[0].title.replace("Party: ", "")
+        remove_person_from_party(interaction.user.display_name, party_name)
+        logging.info(f"User {interaction.user.display_name} removed from party {party_name}")
+        await interaction.response.defer()
+        await self.update_embed(interaction.channel, interaction.message)
+
+    @discord.ui.button(label="Set Jobs", style=discord.ButtonStyle.primary, custom_id="party_set_jobs")
+    async def set_jobs(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        from bot.commands import MyJobsView, _load_person
+        name = interaction.user.display_name
+        current = _load_person(name)
+        existing = current[0]["jobs"] if current else []
+        view = MyJobsView(name, existing, interaction.user.id)
+        await interaction.response.send_message(embed=view.build_embed(), view=view, ephemeral=True)
+
+    @discord.ui.button(label="Move to Bottom", style=discord.ButtonStyle.secondary, custom_id="party_move_bottom")
+    async def move_to_bottom(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        from app.db import db_connection
+        party_name = interaction.message.embeds[0].title.replace("Party: ", "")
+        
+        logging.info(f"Moving party {party_name} to bottom.")
+
+        # Re-render the embed before moving to ensure it's up to date
+        await self.update_embed(interaction.channel, interaction.message)
+        
+        # Now repost the message (the 'message' object is still the old one, we need to refresh it if it was edited)
+        # However, update_embed edited it. We need the new version.
+        
+        # Actually, update_embed edits the message in place.
+        # So interaction.message should now have the updated embed.
+        
+        # Repost
+        view = PersistentPartyView()
+        new_msg = await interaction.channel.send(embed=interaction.message.embeds[0], view=view)
+        
+        logging.info(f"Reposted message for party {party_name} as {new_msg.id}")
+        
+        # Delete old
+        await interaction.message.delete()
+        
+        # Update DB
+        with db_connection() as db:
+            db.execute("UPDATE parties SET home_channel_id = ?, home_message_id = ? WHERE name = ?",
+                       (str(interaction.channel.id), str(new_msg.id), party_name))
+            db.commit()
+            
+        logging.info(f"Updated DB for party {party_name} to channel {interaction.channel.id}, message {new_msg.id}")
+
+        await interaction.response.defer()
+
+    def _get_dashboard_url(self, party_name: str) -> str:
+        base = os.environ.get("BASE_URL")
+        if not base:
+            raise RuntimeError("BASE_URL environment variable is not set.")
+        # Dashboard is a SPA; we link to the root admin panel
+        return f"{base.rstrip('/')}/admin"
 
     async def update_embed(self, channel: discord.TextChannel, message: discord.Message) -> None:
         from app.db import get_party_members, get_cached_character, constraints_from_db
@@ -521,6 +605,7 @@ class PersistentPartyView(View):
         party_name = message.embeds[0].title.replace("Party: ", "")
         
         members = get_party_members(party_name)
+        logging.info(f"Updating embed for party {party_name}, members: {members}")
         constraints = constraints_from_db(party_name)
         target_ilvl = constraints.get("min_gear_level", 0)
         
@@ -533,40 +618,41 @@ class PersistentPartyView(View):
             
             line = f"**{m['name']}**"
             
-            if not m['jobs']:
+            # Status Logic
+            status = "Ready"
+            if not m['lodestone_id']:
+                status = "No Link"
+            elif not char_data:
+                status = "Loading"
+            else:
+                fetched_at = datetime.fromisoformat(char_data['fetched_at'])
+                now = datetime.now(timezone.utc)
+                days_old = (now - fetched_at).days
+                current_ilvl = char_data.get("avg_ilvl", 0)
+                
+                if days_old > 3:
+                    status = f"Outdated ({days_old}d)"
+                elif target_ilvl > 0 and current_ilvl < target_ilvl:
+                    status = f"Low Gear ({current_ilvl}/{target_ilvl})"
+            
+            line += f" — {status}"
+            
+            if m['jobs']:
+                line += f" ({_build_job_list(m['jobs'])})"
+            else:
                 line += " — Missing Jobs"
             
-            if not m['lodestone_id']:
-                line += " — Missing Lodestone"
-            else:
-                if not char_data:
-                    line += " — [no data]"
-                else:
-                    fetched_at = datetime.fromisoformat(char_data['fetched_at'])
-                    now = datetime.now(timezone.utc)
-                    days_old = (now - fetched_at).days
-                    
-                    # Assuming char_data['avg_ilvl'] exists, based on setlodestone command
-                    current_ilvl = char_data.get("avg_ilvl", 0)
-                    
-                    is_low_gear = target_ilvl > 0 and current_ilvl < target_ilvl
-                    
-                    if days_old > 3 and is_low_gear:
-                        line += f" — Outdated ({days_old} days)"
-                    elif days_old <= 3 and is_low_gear:
-                        line += f" — Low Gear (Current: {current_ilvl} / Target: {target_ilvl})"
-                    else:
-                        # What if it's outdated but not low gear?
-                        # The instructions didn't specify. I will just leave it as is if it doesn't meet conditions.
-                        pass
             lines.append(line)
-
         
         embed = discord.Embed(title=f"Party: {party_name}", 
+                              url=self._get_dashboard_url(party_name),
                               description="\n".join(lines) if lines else "No members.", 
                               color=discord.Color.blue())
         
+        logging.info(f"Editing message for party {party_name} with embed: {embed.description}")
         await message.edit(embed=embed, view=self)
+
+
 
 
 @client.tree.command(name="setup-home-channel", description="Setup the persistent home channel embed for a party")
@@ -578,19 +664,46 @@ async def setup_home_channel(interaction: discord.Interaction, party_name: str) 
     # Check if party exists
     with db_connection() as db:
         party = db.execute("SELECT name FROM parties WHERE name = ?", (party_name,)).fetchone()
-        if not party:
-            await interaction.response.send_message(f"Party '{party_name}' not found.", ephemeral=True)
-            return
+        
+    if not party:
+        view = CreatePartyView(party_name)
+        await interaction.response.send_message(f"Party '{party_name}' not found. Create it?", view=view, ephemeral=True)
+        return
 
+    await _perform_setup(interaction, party_name)
+
+
+async def _perform_setup(interaction: discord.Interaction, party_name: str) -> None:
     channel = interaction.channel
-    embed = discord.Embed(title=f"Party: {party_name}", description="Manage your party status here.", color=discord.Color.blue())
+    # Add the URL here too, for the initial message
+    embed = discord.Embed(title=f"Party: {party_name}", 
+                          url=PersistentPartyView()._get_dashboard_url(party_name),
+                          description="Manage your party status here.", 
+                          color=discord.Color.blue())
     view = PersistentPartyView()
     msg = await channel.send(embed=embed, view=view)
     
+    from app.db import db_connection
     with db_connection() as db:
         db.execute("UPDATE parties SET home_channel_id = ?, home_message_id = ? WHERE name = ?", 
                    (str(channel.id), str(msg.id), party_name))
         db.commit()
     
-    await interaction.response.send_message(f"Home channel setup for {party_name}!", ephemeral=True)
+    # If this was called from a button, edit the original response
+    if interaction.response.is_done():
+        await interaction.followup.send(f"Home channel setup for {party_name}!", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Home channel setup for {party_name}!", ephemeral=True)
+
+
+class CreatePartyView(View):
+    def __init__(self, party_name: str) -> None:
+        super().__init__(timeout=60)
+        self.party_name = party_name
+
+    @discord.ui.button(label="Create Party", style=discord.ButtonStyle.primary)
+    async def create(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        from app.db import create_party
+        create_party(self.party_name)
+        await _perform_setup(interaction, self.party_name)
 

@@ -56,26 +56,39 @@ def _bot_api(method: str, path: str, json: dict[str, Any] | None = None) -> dict
 def check_access() -> bool:
     discord = get_discord()
     if not discord.authorized:
+        logger.info("check_access: Not authorized (no session)")
         return False
     user = discord.fetch_user()
     user_id = str(user.id)
     guild_id = _guild_id()
+    logger.info("check_access: Checking user_id=%s, guild_id=%s", user_id, guild_id)
 
     if bot_owner_id() == user_id:
+        logger.info("check_access: User is bot owner")
         return True
 
     if not guild_id:
+        logger.info("check_access: No guild_id defined")
         return False
 
     guild = _bot_api("GET", f"/guilds/{guild_id}")
-    if guild and guild.get("owner_id") == user_id:
-        return True
+    if guild:
+        logger.info("check_access: Guild API response: owner_id=%s", guild.get("owner_id"))
+        if guild.get("owner_id") == user_id:
+            logger.info("check_access: User is guild owner")
+            return True
+    else:
+        logger.info("check_access: Guild API failed")
 
     member = _bot_api("GET", f"/guilds/{guild_id}/members/{user_id}")
     if not member:
+        logger.info("check_access: Member lookup failed or user not in guild")
         return False
+    
     member_roles = set(member["roles"])
     allowed = get_role_ids(guild_id)
+    logger.info("check_access: Member roles=%s, allowed_roles=%s", member_roles, allowed)
+    
     return bool(allowed and member_roles & allowed)
 
 
@@ -86,6 +99,31 @@ def require_admin(f: Callable[..., Response]) -> Callable[..., Response]:
         if not discord.authorized:
             return redirect(url_for("auth.login"))  # type: ignore[return-value]
         if not check_access():
+            return make_response("Not authorized", 403)
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+def check_party_access(party_name: str) -> bool:
+    if check_access():
+        return True
+    discord = get_discord()
+    if not discord.authorized:
+        return False
+    user = discord.fetch_user()
+    from app.db import check_party_member
+    return check_party_member(str(user.id), party_name)
+
+
+def require_party_member(f: Callable[..., Response]) -> Callable[..., Response]:
+    @wraps(f)
+    def decorated(*args: Any, **kwargs: Any) -> Response:
+        party_name = kwargs.get("party_name")
+        discord = get_discord()
+        if not discord.authorized:
+            return redirect(url_for("auth.login"))  # type: ignore[return-value]
+        if not party_name or not check_party_access(party_name):
             return make_response("Not authorized", 403)
         return f(*args, **kwargs)
 

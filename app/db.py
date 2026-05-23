@@ -315,6 +315,17 @@ def remove_person_from_party(person_name: str, party_name: str | None = None) ->
         db.commit()
 
 
+def check_party_member(discord_id: str, party_name: str) -> bool:
+    with db_connection() as db:
+        row = db.execute(
+            """SELECT 1 FROM party_people pp
+               JOIN people p ON pp.person_name = p.name
+               WHERE p.discord_id = ? AND pp.party_name = ?""",
+            (discord_id, party_name),
+        ).fetchone()
+        return row is not None
+
+
 
 def get_party_members(party_name: str) -> list[dict[str, Any]]:
     with db_connection() as db:

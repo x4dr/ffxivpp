@@ -392,12 +392,28 @@ async function savePeople() {
   else showStatus('Failed to save people', 'err');
 }
 
+let isAdmin = false;
+
 async function fetchUser() {
   const r = await fetch('/api/me');
   if (r.status === 401) { window.location.href = '/auth/login'; return; }
   const data = await r.json();
   document.getElementById('user-name').textContent = data.name;
   document.getElementById('user-avatar').src = data.avatar;
+  isAdmin = data.is_admin;
+  
+  if (!isAdmin) {
+    // Hide/disable admin-only controls
+    document.getElementById('new-party-name').style.display = 'none';
+    document.querySelectorAll('button[onclick*="createParty"]').forEach(el => el.style.display = 'none');
+    document.getElementById('delete-party-btn').style.display = 'none';
+    document.querySelectorAll('button[onclick*="addPerson"]').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('button[onclick*="addPoolPerson"]').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('button[onclick*="saveConstraints"]').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('button[onclick*="addExclusion"]').forEach(el => el.style.display = 'none');
+    document.getElementById('post-poll-btn').style.display = 'none';
+    document.getElementById('channel-select').style.display = 'none';
+  }
 }
 
 async function fetchConstraints() {
@@ -632,13 +648,17 @@ async function saveHomeChannel(channelId) {
   showStatus('Home channel updated', 'ok');
 }
 
-async function switchParty(name) {
+async function switchParty(name, updateUrl = true) {
   await fetch('/api/parties/switch', {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name})
   });
   activeParty = name;
+  if (updateUrl) {
+    history.pushState(null, '', '/party/' + name);
+  }
   await Promise.all([fetchPeople(), fetchConstraints(), fetchExclusions(), fetchPool()]);
   fetchParties();
+  computeParties();
 }
 
 async function createParty() {
@@ -780,14 +800,24 @@ function showStatus(msg, type) {
   }, 10000);
 }
 
-fetchUser();
-fetchParties();
-fetchPeople();
-fetchConstraints();
-fetchExclusions();
-fetchChannels();
-fetchPool();
-computeParties();
+async function init() {
+  await fetchUser();
+
+  // Check URL for party
+  const pathParts = window.location.pathname.split('/');
+  if (pathParts.length > 2 && pathParts[1] === 'party') {
+    const partyName = decodeURIComponent(pathParts[2]);
+    await switchParty(partyName, false);
+  } else {
+    await fetchParties();
+    await Promise.all([fetchPeople(), fetchConstraints(), fetchExclusions(), fetchPool()]);
+  }
+
+  await fetchChannels();
+  computeParties();
+}
+
+init();
 </script>
 </body>
 </html>
