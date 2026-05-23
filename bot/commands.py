@@ -483,7 +483,6 @@ async def admin_role_remove(interaction: discord.Interaction, role: discord.Role
     )
 
 
-class PersistentPartyView(View):
 class RecheckButton(Button):
     def __init__(self) -> None:
         super().__init__(label="Recheck Lodestone", style=discord.ButtonStyle.secondary, custom_id="recheck_lodestone")

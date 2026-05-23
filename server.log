@@ -1,0 +1,419 @@
+DEBUG:app.db:Database connection opened: 139988572322880
+DEBUG:app.db:Database connection 139988572322880 closed after 0.0002s
+ * Serving Flask app 'app'
+ * Debug mode: off
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:7111
+ * Running on http://192.168.178.36:7111
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+DEBUG:requests_oauthlib.oauth2_session:Invoking 0 protected resource request hooks.
+DEBUG:requests_oauthlib.oauth2_session:Adding token {'access_token': 'MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR', 'expires_at': 1780143097, 'expires_in': 604800, 'refresh_token': 'uGomDQH3h7h0GtJOUq9ugAAZql30T2', 'scope': ['guilds', 'identify'], 'token_type': 'Bearer'} to request.
+DEBUG:requests_oauthlib.oauth2_session:Requesting url https://discordapp.com/api/users/@me using method GET.
+DEBUG:requests_oauthlib.oauth2_session:Supplying headers {'Authorization': 'Bearer MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR'} and data None
+DEBUG:requests_oauthlib.oauth2_session:Passing through key word arguments {}.
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discordapp.com:443
+DEBUG:urllib3.connectionpool:https://discordapp.com:443 "GET /api/users/@me HTTP/1.1" 200 None
+DEBUG:app.db:Database connection opened: 139988573164528
+DEBUG:app.db:Database connection 139988573164528 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /admin HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/admin.css HTTP/1.1[0m" 304 -
+DEBUG:requests_oauthlib.oauth2_session:Invoking 0 protected resource request hooks.
+DEBUG:requests_oauthlib.oauth2_session:Adding token {'access_token': 'MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR', 'expires_at': 1780143097, 'expires_in': 604800, 'refresh_token': 'uGomDQH3h7h0GtJOUq9ugAAZql30T2', 'scope': ['guilds', 'identify'], 'token_type': 'Bearer'} to request.
+DEBUG:requests_oauthlib.oauth2_session:Requesting url https://discordapp.com/api/users/@me using method GET.
+DEBUG:requests_oauthlib.oauth2_session:Supplying headers {'Authorization': 'Bearer MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR'} and data None
+DEBUG:requests_oauthlib.oauth2_session:Passing through key word arguments {}.
+DEBUG:app.db:Database connection opened: 139988573165488
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discordapp.com:443
+DEBUG:app.db:Database connection 139988573165488 closed after 0.0011s
+DEBUG:app.db:Database connection opened: 139988573170768
+DEBUG:app.db:Database connection 139988573170768 closed after 0.0004s
+DEBUG:app.db:Database connection opened: 139988573171008
+DEBUG:app.db:Database connection opened: 139988573165488
+DEBUG:app.db:Database connection opened: 139988573170768
+DEBUG:app.db:Database connection opened: 139988573171248
+DEBUG:app.db:Database connection 139988573171008 closed after 0.0002s
+DEBUG:app.db:Database connection 139988573170768 closed after 0.0002s
+DEBUG:app.db:Database connection 139988573171248 closed after 0.0002s
+DEBUG:app.db:Database connection opened: 139988573171968
+DEBUG:app.db:Database connection 139988573171968 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "GET /api/parties HTTP/1.1" 200 -
+DEBUG:app.db:Database connection 139988573165488 closed after 0.0007s
+DEBUG:app.db:Database connection opened: 139988573171968
+DEBUG:app.db:Database connection opened: 139988573171008
+DEBUG:app.db:Database connection opened: 139988573171248
+DEBUG:app.db:Database connection opened: 139988573167648
+DEBUG:app.db:Flask DB connection closed
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "GET /api/exclusions HTTP/1.1" 200 -
+DEBUG:app.db:Database connection 139988573167648 closed after 0.0003s
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discord.com:443
+DEBUG:app.db:Database connection 139988573171008 closed after 0.0016s
+DEBUG:app.db:Database connection opened: 139988573167648
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "GET /api/people HTTP/1.1" 200 -
+DEBUG:app.db:Database connection 139988573171248 closed after 0.0016s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "GET /api/constraints HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573171728
+DEBUG:app.db:Database connection 139988573167648 closed after 0.0007s
+DEBUG:app.db:Database connection 139988573171728 closed after 0.0003s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "GET /api/compute/stream HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "GET /api/people-pool HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/drk.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/pld.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/whm.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/sge.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/vpr.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/pct.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/rdm.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/gnb.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/dnc.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/sam.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/nin.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/discord.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/lodestone.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/drg.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "[36mGET /static/icons/blm.png HTTP/1.1[0m" 304 -
+DEBUG:urllib3.connectionpool:https://discordapp.com:443 "GET /api/users/@me HTTP/1.1" 200 None
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discord.com:443
+DEBUG:urllib3.connectionpool:https://discord.com:443 "GET /api/v10/guilds/298197955951984640/channels HTTP/1.1" 200 None
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "GET /api/channels HTTP/1.1" 200 -
+DEBUG:urllib3.connectionpool:https://discord.com:443 "GET /api/v10/guilds/298197955951984640/members/217068793543917569 HTTP/1.1" 200 None
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:07] "GET /api/me HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573165248
+DEBUG:app.db:Database connection 139988573165248 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573169328
+DEBUG:app.db:Database connection 139988573169328 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:51:46] "GET /api/lodestone/16 HTTP/1.1" 200 -
+DEBUG:requests_oauthlib.oauth2_session:Invoking 0 protected resource request hooks.
+DEBUG:requests_oauthlib.oauth2_session:Adding token {'access_token': 'MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR', 'expires_at': 1780143097, 'expires_in': 604800, 'refresh_token': 'uGomDQH3h7h0GtJOUq9ugAAZql30T2', 'scope': ['guilds', 'identify'], 'token_type': 'Bearer'} to request.
+DEBUG:requests_oauthlib.oauth2_session:Requesting url https://discordapp.com/api/users/@me using method GET.
+DEBUG:requests_oauthlib.oauth2_session:Supplying headers {'Authorization': 'Bearer MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR'} and data None
+DEBUG:requests_oauthlib.oauth2_session:Passing through key word arguments {}.
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discordapp.com:443
+DEBUG:urllib3.connectionpool:https://discordapp.com:443 "GET /api/users/@me HTTP/1.1" 200 None
+DEBUG:app.db:Database connection opened: 139988573167408
+DEBUG:app.db:Database connection 139988573167408 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /admin HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/admin.css HTTP/1.1[0m" 304 -
+DEBUG:app.db:Database connection opened: 139988573169328
+DEBUG:app.db:Database connection 139988573169328 closed after 0.0000s
+DEBUG:app.db:Database connection opened: 139988573169328
+DEBUG:app.db:Database connection 139988573169328 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573169328
+DEBUG:app.db:Database connection 139988573169328 closed after 0.0000s
+DEBUG:app.db:Database connection opened: 139988573169328
+DEBUG:app.db:Database connection 139988573169328 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "GET /api/compute/stream HTTP/1.1" 200 -
+DEBUG:requests_oauthlib.oauth2_session:Invoking 0 protected resource request hooks.
+DEBUG:requests_oauthlib.oauth2_session:Adding token {'access_token': 'MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR', 'expires_at': 1780143097, 'expires_in': 604800, 'refresh_token': 'uGomDQH3h7h0GtJOUq9ugAAZql30T2', 'scope': ['guilds', 'identify'], 'token_type': 'Bearer'} to request.
+DEBUG:requests_oauthlib.oauth2_session:Requesting url https://discordapp.com/api/users/@me using method GET.
+DEBUG:requests_oauthlib.oauth2_session:Supplying headers {'Authorization': 'Bearer MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR'} and data None
+DEBUG:requests_oauthlib.oauth2_session:Passing through key word arguments {}.
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discordapp.com:443
+DEBUG:app.db:Database connection opened: 139988573172688
+DEBUG:app.db:Database connection opened: 139988573174128
+DEBUG:app.db:Database connection 139988573172688 closed after 0.0004s
+DEBUG:app.db:Database connection 139988573174128 closed after 0.0002s
+DEBUG:app.db:Database connection opened: 139988561154096
+DEBUG:app.db:Database connection opened: 139988573172688
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discord.com:443
+DEBUG:app.db:Database connection 139988573172688 closed after 0.0003s
+DEBUG:app.db:Database connection opened: 139988573174128
+DEBUG:app.db:Database connection 139988561154096 closed after 0.0011s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "GET /api/parties HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988561154336
+DEBUG:app.db:Database connection 139988573174128 closed after 0.0003s
+DEBUG:app.db:Database connection 139988561154336 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "GET /api/people HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573172688
+DEBUG:app.db:Database connection opened: 139988561154336
+DEBUG:app.db:Database connection 139988573172688 closed after 0.0007s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "GET /api/constraints HTTP/1.1" 200 -
+DEBUG:app.db:Flask DB connection closed
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "GET /api/exclusions HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573174128
+DEBUG:app.db:Database connection 139988573174128 closed after 0.0002s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "GET /api/people-pool HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/pld.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/gnb.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/whm.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/sge.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/vpr.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/pct.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/dnc.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/rdm.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/drk.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/sam.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/discord.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/nin.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/lodestone.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/drg.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:54] "[36mGET /static/icons/blm.png HTTP/1.1[0m" 304 -
+DEBUG:urllib3.connectionpool:https://discord.com:443 "GET /api/v10/guilds/298197955951984640/channels HTTP/1.1" 200 None
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:55] "GET /api/channels HTTP/1.1" 200 -
+DEBUG:urllib3.connectionpool:https://discordapp.com:443 "GET /api/users/@me HTTP/1.1" 200 None
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discord.com:443
+DEBUG:urllib3.connectionpool:https://discord.com:443 "GET /api/v10/guilds/298197955951984640/members/217068793543917569 HTTP/1.1" 200 None
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:55] "GET /api/me HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:53:56] "GET /api/lodestone/16 HTTP/1.1" 200 -
+DEBUG:requests_oauthlib.oauth2_session:Invoking 0 protected resource request hooks.
+DEBUG:requests_oauthlib.oauth2_session:Adding token {'access_token': 'MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR', 'expires_at': 1780143097, 'expires_in': 604800, 'refresh_token': 'uGomDQH3h7h0GtJOUq9ugAAZql30T2', 'scope': ['guilds', 'identify'], 'token_type': 'Bearer'} to request.
+DEBUG:requests_oauthlib.oauth2_session:Requesting url https://discordapp.com/api/users/@me using method GET.
+DEBUG:requests_oauthlib.oauth2_session:Supplying headers {'Authorization': 'Bearer MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR'} and data None
+DEBUG:requests_oauthlib.oauth2_session:Passing through key word arguments {}.
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discordapp.com:443
+DEBUG:urllib3.connectionpool:https://discordapp.com:443 "GET /api/users/@me HTTP/1.1" 200 None
+DEBUG:app.db:Database connection opened: 139988573166208
+DEBUG:app.db:Database connection 139988573166208 closed after 0.0000s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /admin HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/admin.css HTTP/1.1[0m" 304 -
+DEBUG:requests_oauthlib.oauth2_session:Invoking 0 protected resource request hooks.
+DEBUG:requests_oauthlib.oauth2_session:Adding token {'access_token': 'MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR', 'expires_at': 1780143097, 'expires_in': 604800, 'refresh_token': 'uGomDQH3h7h0GtJOUq9ugAAZql30T2', 'scope': ['guilds', 'identify'], 'token_type': 'Bearer'} to request.
+DEBUG:requests_oauthlib.oauth2_session:Requesting url https://discordapp.com/api/users/@me using method GET.
+DEBUG:requests_oauthlib.oauth2_session:Supplying headers {'Authorization': 'Bearer MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR'} and data None
+DEBUG:requests_oauthlib.oauth2_session:Passing through key word arguments {}.
+DEBUG:app.db:Database connection opened: 139988573166208
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discordapp.com:443
+DEBUG:app.db:Database connection 139988573166208 closed after 0.0008s
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection opened: 139988561154576
+DEBUG:app.db:Database connection opened: 139988561153856
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0002s
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988561154576 closed after 0.0003s
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0002s
+DEBUG:app.db:Database connection opened: 139988573166208
+DEBUG:app.db:Database connection 139988561153856 closed after 0.0003s
+DEBUG:app.db:Database connection 139988573166208 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0002s
+DEBUG:app.db:Database connection opened: 139988561153856
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "GET /api/people HTTP/1.1" 200 -
+DEBUG:app.db:Flask DB connection closed
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection opened: 139988573166208
+DEBUG:app.db:Database connection opened: 139988561154576
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "GET /api/exclusions HTTP/1.1" 200 -
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0005s
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discord.com:443
+DEBUG:app.db:Database connection 139988573166208 closed after 0.0077s
+DEBUG:app.db:Database connection 139988561154576 closed after 0.0084s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "GET /api/parties HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "GET /api/constraints HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988561155776
+DEBUG:app.db:Database connection opened: 139988573166208
+DEBUG:app.db:Database connection 139988561155776 closed after 0.0003s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "GET /api/people-pool HTTP/1.1" 200 -
+DEBUG:app.db:Database connection 139988573166208 closed after 0.0003s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "GET /api/compute/stream HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/drk.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/gnb.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/vpr.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/sam.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/discord.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/lodestone.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/sge.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/whm.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/dnc.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/pct.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/nin.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/rdm.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/drg.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/pld.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:52] "[36mGET /static/icons/blm.png HTTP/1.1[0m" 304 -
+DEBUG:urllib3.connectionpool:https://discordapp.com:443 "GET /api/users/@me HTTP/1.1" 200 None
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discord.com:443
+DEBUG:urllib3.connectionpool:https://discord.com:443 "GET /api/v10/guilds/298197955951984640/channels HTTP/1.1" 200 None
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:53] "GET /api/channels HTTP/1.1" 200 -
+DEBUG:urllib3.connectionpool:https://discord.com:443 "GET /api/v10/guilds/298197955951984640/members/217068793543917569 HTTP/1.1" 200 None
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:53] "GET /api/me HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:54] "GET /api/lodestone/16 HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0000s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:56] "GET /api/lodestone/15 HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 16:56:58] "GET /api/lodestone/6 HTTP/1.1" 200 -
+DEBUG:requests_oauthlib.oauth2_session:Invoking 0 protected resource request hooks.
+DEBUG:requests_oauthlib.oauth2_session:Adding token {'access_token': 'MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR', 'expires_at': 1780143097, 'expires_in': 604800, 'refresh_token': 'uGomDQH3h7h0GtJOUq9ugAAZql30T2', 'scope': ['guilds', 'identify'], 'token_type': 'Bearer'} to request.
+DEBUG:requests_oauthlib.oauth2_session:Requesting url https://discordapp.com/api/users/@me using method GET.
+DEBUG:requests_oauthlib.oauth2_session:Supplying headers {'Authorization': 'Bearer MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR'} and data None
+DEBUG:requests_oauthlib.oauth2_session:Passing through key word arguments {}.
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discordapp.com:443
+DEBUG:urllib3.connectionpool:https://discordapp.com:443 "GET /api/users/@me HTTP/1.1" 200 None
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0000s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /admin HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/admin.css HTTP/1.1[0m" 304 -
+DEBUG:requests_oauthlib.oauth2_session:Invoking 0 protected resource request hooks.
+DEBUG:requests_oauthlib.oauth2_session:Adding token {'access_token': 'MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR', 'expires_at': 1780143097, 'expires_in': 604800, 'refresh_token': 'uGomDQH3h7h0GtJOUq9ugAAZql30T2', 'scope': ['guilds', 'identify'], 'token_type': 'Bearer'} to request.
+DEBUG:requests_oauthlib.oauth2_session:Requesting url https://discordapp.com/api/users/@me using method GET.
+DEBUG:requests_oauthlib.oauth2_session:Supplying headers {'Authorization': 'Bearer MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR'} and data None
+DEBUG:requests_oauthlib.oauth2_session:Passing through key word arguments {}.
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discordapp.com:443
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0008s
+DEBUG:app.db:Database connection opened: 139988573174128
+DEBUG:app.db:Database connection opened: 139988561154096
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection 139988573174128 closed after 0.0006s
+DEBUG:app.db:Database connection 139988561154096 closed after 0.0002s
+DEBUG:app.db:Database connection opened: 139988561154816
+DEBUG:app.db:Database connection opened: 139988561155296
+DEBUG:app.db:Database connection 139988561154816 closed after 0.0002s
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0004s
+DEBUG:app.db:Database connection 139988561155296 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988561154096
+DEBUG:app.db:Database connection opened: 139988573174128
+DEBUG:app.db:Database connection 139988573174128 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988561154816
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "GET /api/parties HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection 139988561154096 closed after 0.0006s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "GET /api/people HTTP/1.1" 200 -
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0004s
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discord.com:443
+DEBUG:app.db:Database connection 139988561154816 closed after 0.0019s
+DEBUG:app.db:Database connection opened: 139988561155296
+DEBUG:app.db:Database connection opened: 139988573170528
+DEBUG:app.db:Database connection opened: 139988561155056
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "GET /api/constraints HTTP/1.1" 200 -
+DEBUG:app.db:Flask DB connection closed
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "GET /api/exclusions HTTP/1.1" 200 -
+DEBUG:app.db:Database connection 139988573170528 closed after 0.0006s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "GET /api/compute/stream HTTP/1.1" 200 -
+DEBUG:app.db:Database connection 139988561155056 closed after 0.0015s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "GET /api/people-pool HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/drk.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/gnb.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/vpr.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/sam.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/discord.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/lodestone.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/sge.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/whm.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/pct.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/dnc.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/rdm.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/nin.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/pld.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/drg.png HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "[36mGET /static/icons/blm.png HTTP/1.1[0m" 304 -
+DEBUG:urllib3.connectionpool:https://discordapp.com:443 "GET /api/users/@me HTTP/1.1" 200 None
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discord.com:443
+DEBUG:urllib3.connectionpool:https://discord.com:443 "GET /api/v10/guilds/298197955951984640/channels HTTP/1.1" 200 None
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "GET /api/channels HTTP/1.1" 200 -
+DEBUG:urllib3.connectionpool:https://discord.com:443 "GET /api/v10/guilds/298197955951984640/members/217068793543917569 HTTP/1.1" 200 None
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:13:36] "GET /api/me HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573168368
+DEBUG:app.db:Database connection 139988573168368 closed after 0.0079s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:14:39] "POST /api/parties HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573168368
+DEBUG:app.db:Database connection 139988573168368 closed after 0.0055s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:14:39] "POST /api/parties/switch HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573174368
+DEBUG:app.db:Database connection 139988573174368 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573165008
+DEBUG:app.db:Database connection opened: 139988573174128
+DEBUG:app.db:Database connection 139988573165008 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573174368
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573174128 closed after 0.0003s
+DEBUG:app.db:Database connection 139988573174368 closed after 0.0002s
+DEBUG:app.db:Database connection opened: 139988573165008
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:14:39] "GET /api/people-pool HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:14:39] "GET /api/people HTTP/1.1" 200 -
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0005s
+DEBUG:app.db:Flask DB connection closed
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:14:39] "GET /api/exclusions HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:14:39] "GET /api/constraints HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0000s
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0000s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:14:39] "GET /api/parties HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:14:42] "GET /api/compute/stream HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:14:43] "GET /api/compute/stream HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:14:43] "GET /api/compute/stream HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:14:44] "GET /api/compute/stream HTTP/1.1" 200 -
+DEBUG:requests_oauthlib.oauth2_session:Invoking 0 protected resource request hooks.
+DEBUG:requests_oauthlib.oauth2_session:Adding token {'access_token': 'MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR', 'expires_at': 1780143097, 'expires_in': 604800, 'refresh_token': 'uGomDQH3h7h0GtJOUq9ugAAZql30T2', 'scope': ['guilds', 'identify'], 'token_type': 'Bearer'} to request.
+DEBUG:requests_oauthlib.oauth2_session:Requesting url https://discordapp.com/api/users/@me using method GET.
+DEBUG:requests_oauthlib.oauth2_session:Supplying headers {'Authorization': 'Bearer MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR'} and data None
+DEBUG:requests_oauthlib.oauth2_session:Passing through key word arguments {}.
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discordapp.com:443
+DEBUG:urllib3.connectionpool:https://discordapp.com:443 "GET /api/users/@me HTTP/1.1" 200 None
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:19:58] "GET /admin HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:19:58] "GET /static/admin.css HTTP/1.1" 200 -
+DEBUG:requests_oauthlib.oauth2_session:Invoking 0 protected resource request hooks.
+DEBUG:requests_oauthlib.oauth2_session:Adding token {'access_token': 'MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR', 'expires_at': 1780143097, 'expires_in': 604800, 'refresh_token': 'uGomDQH3h7h0GtJOUq9ugAAZql30T2', 'scope': ['guilds', 'identify'], 'token_type': 'Bearer'} to request.
+DEBUG:requests_oauthlib.oauth2_session:Requesting url https://discordapp.com/api/users/@me using method GET.
+DEBUG:requests_oauthlib.oauth2_session:Supplying headers {'Authorization': 'Bearer MTUwNzE0NDA4MjA2Mzg4ODQ1NQ.s2T7wlsJ94OyDSdCZKVKyx6rhsTccR'} and data None
+DEBUG:requests_oauthlib.oauth2_session:Passing through key word arguments {}.
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discordapp.com:443
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0008s
+DEBUG:app.db:Database connection opened: 139988573169328
+DEBUG:app.db:Database connection opened: 139988561154096
+DEBUG:app.db:Database connection 139988573169328 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988561155536
+DEBUG:app.db:Database connection 139988561154096 closed after 0.0002s
+DEBUG:app.db:Database connection opened: 139988561155056
+DEBUG:app.db:Database connection 139988561155536 closed after 0.0002s
+DEBUG:app.db:Database connection 139988561155056 closed after 0.0000s
+DEBUG:app.db:Database connection opened: 139988573167168
+DEBUG:app.db:Database connection 139988573167168 closed after 0.0001s
+DEBUG:app.db:Database connection opened: 139988561154096
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:19:58] "GET /api/compute/stream HTTP/1.1" 200 -
+DEBUG:app.db:Database connection 139988561154096 closed after 0.0002s
+DEBUG:app.db:Database connection opened: 139988573169328
+DEBUG:app.db:Database connection opened: 139988561155056
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:19:58] "GET /api/people HTTP/1.1" 200 -
+DEBUG:app.db:Database connection 139988573169328 closed after 0.0003s
+DEBUG:app.db:Flask DB connection closed
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:19:58] "GET /api/exclusions HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:19:58] "GET /api/parties HTTP/1.1" 200 -
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discord.com:443
+DEBUG:app.db:Database connection opened: 139988561155536
+DEBUG:app.db:Database connection 139988561155536 closed after 0.0004s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:19:58] "GET /api/constraints HTTP/1.1" 200 -
+DEBUG:app.db:Database connection opened: 139988573174368
+DEBUG:app.db:Database connection 139988573174368 closed after 0.0001s
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:19:58] "GET /api/people-pool HTTP/1.1" 200 -
+DEBUG:urllib3.connectionpool:https://discordapp.com:443 "GET /api/users/@me HTTP/1.1" 200 None
+DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): discord.com:443
+DEBUG:urllib3.connectionpool:https://discord.com:443 "GET /api/v10/guilds/298197955951984640/channels HTTP/1.1" 200 None
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:19:58] "GET /api/channels HTTP/1.1" 200 -
+DEBUG:urllib3.connectionpool:https://discord.com:443 "GET /api/v10/guilds/298197955951984640/members/217068793543917569 HTTP/1.1" 200 None
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 17:19:58] "GET /api/me HTTP/1.1" 200 -
