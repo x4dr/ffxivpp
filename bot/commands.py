@@ -229,10 +229,19 @@ def _save_person(name: str, jids: list[str], discord_id: str | None = None) -> N
 
 def _build_job_list(jobs: list[str]) -> str:
     parts: list[str] = []
+    # Map roles to their display names
+    role_map = {r: label for r, label, _ in ROLES}
+    
     for entry in jobs:
         jid = parse_job_id(entry)
-        name = JOB_NAMES.get(jid, jid.upper())
-        parts.append(name)
+        # Check job names first
+        if jid in JOB_NAMES:
+            parts.append(JOB_NAMES[jid])
+        # Check role names
+        elif jid in role_map:
+            parts.append(role_map[jid])
+        else:
+            parts.append(jid.upper())
     return "/".join(parts) if parts else "*none*"
 
 

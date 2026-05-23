@@ -42,7 +42,9 @@ def init_db():
     Base.metadata.create_all(engine)
     if not Session.query(Party).filter_by(name='Default').first():
         Session.add(Party(name='Default'))
-        Session.commit()
+    if not Session.query(AppState).filter_by(key='active_party').first():
+        Session.add(AppState(key='active_party', value='Default'))
+    Session.commit()
     Session.remove()
 
 def close_db(e: Any = None) -> None:
@@ -136,7 +138,15 @@ def check_party_member(discord_id: str, party_name: str) -> bool:
 def constraints_from_db(party_name: str) -> dict[str, Any]:
     try:
         constraints = Session.query(PartyConstraint).filter_by(party_name=party_name).all()
-        out = {c.key: c.value for c in constraints}
+        # Ensure values are converted to appropriate types for JSON
+        out = {}
+        for c in constraints:
+            val = c.value
+            if val == "True": val = True
+            elif val == "False": val = False
+            elif val.isdigit(): val = int(val)
+            out[c.key] = val
+            
         excl = Session.query(PartyExclusion).filter_by(party_name=party_name).all()
         out["exclusions"] = [e.jobs.split(",") for e in excl]
         return out

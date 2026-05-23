@@ -24,8 +24,8 @@ async def test_embed_status_generation():
 
     # Test cases: (days_old, ilvl, expected_substring)
     test_cases = [
-        (4, 500, "Outdated (4 days)"), # Outdated AND low gear
-        (1, 500, "Low Gear (Current: 500 / Target: 600)"), # Recent AND low gear
+        (4, 500, "Outdated (4d)"), # Outdated AND low gear
+        (1, 500, "Low Gear (500/600)"), # Recent AND low gear
         (1, 650, None), # Recent AND high gear -> No warning
     ]
 

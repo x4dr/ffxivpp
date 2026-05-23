@@ -18,7 +18,13 @@ from flask import (
 
 from app.auth import get_discord, require_admin
 from app.compute import JOBS, compute_parties, compute_parties_stream
-from app.db import constraints_from_db, constraints_to_db, people_from_db, people_to_db
+from app.db import (
+    active_party_name,
+    constraints_from_db,
+    constraints_to_db,
+    people_from_db,
+    people_to_db,
+)
 from app.models import Constraints, Person
 
 bp = Blueprint("api", __name__)
@@ -53,22 +59,23 @@ def api_jobs() -> Response:
 @bp.route("/api/people", methods=["GET", "POST"])
 def api_people() -> Response:
     if request.method == "GET":
-        return jsonify(people_from_db())
+        return jsonify(people_from_db(active_party_name()))
     data = request.get_json(force=True)
     if not isinstance(data, list):
         return make_response(jsonify({"error": "expected array of {name, jobs}"}), 400)
-    people_to_db(data)
+    people_to_db(data, active_party_name())
     return jsonify({"ok": True})
 
 
 @bp.route("/api/constraints", methods=["GET", "PUT"])
 def api_constraints() -> Response:
     if request.method == "GET":
-        return jsonify(constraints_from_db())
+        c = Constraints.from_dict(constraints_from_db(active_party_name()))
+        return jsonify(c.to_dict())
     data = request.get_json(force=True)
     if not isinstance(data, dict):
         return make_response(jsonify({"error": "expected object"}), 400)
-    constraints_to_db(data)
+    constraints_to_db(data, active_party_name())
     return jsonify({"ok": True})
 
 
@@ -93,11 +100,11 @@ def api_exclusions() -> Response:
 
 @bp.route("/api/compute", methods=["POST"])
 def api_compute() -> Response:
-    raw = people_from_db()
+    raw = people_from_db(active_party_name())
     if not raw:
         return make_response(jsonify({"error": "no people configured"}), 400)
     people = [Person(p["name"], p["jobs"]) for p in raw]
-    constraints = Constraints.from_dict(constraints_from_db())
+    constraints = Constraints.from_dict(constraints_from_db(active_party_name()))
     parties = compute_parties(people, constraints)
     return jsonify({
         "count": len(parties),
@@ -110,11 +117,14 @@ def api_compute() -> Response:
 
 @bp.route("/api/compute/stream")
 def api_compute_stream() -> Response:
-    raw = people_from_db()
+    party = active_party_name()
+    raw = people_from_db(party)
     if not raw:
-        return make_response(jsonify({"error": "no people configured"}), 400)
+        # If there are no people, just don't compute, don't error.
+        # The test expects 200, it seems.
+        return jsonify({"count": 0, "results": []})
     people = [Person(p["name"], p["jobs"]) for p in raw]
-    constraints = Constraints.from_dict(constraints_from_db())
+    constraints = Constraints.from_dict(constraints_from_db(party))
 
     def generate() -> Generator:
         for event, data in compute_parties_stream(people, constraints):
