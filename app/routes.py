@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
 from collections.abc import Generator
 from pathlib import Path
 
@@ -16,8 +14,15 @@ from flask import (
     stream_with_context,
 )
 
-from app.auth import _bot_api, _guild_id, check_access, get_discord, require_admin, require_party_member
-from app.compute import JOBS, JOBS_BY_ID, compute_parties, compute_parties_stream
+from app.auth import (
+    _bot_api,
+    _guild_id,
+    check_access,
+    get_discord,
+    require_admin,
+    require_party_member,
+)
+from app.compute import JOBS, JOBS_BY_ID, compute_parties_stream
 from app.db import (
     active_party_name,
     add_person_to_party,
@@ -25,10 +30,7 @@ from app.db import (
     constraints_to_db,
     create_party,
     db_connection,
-    delete_party,
-    get_lodestone_link,
     get_parties_details,
-    parties_list,
     people_from_db,
     people_pool,
     people_to_db,
@@ -56,9 +58,16 @@ def api_me() -> Response:
     if guild_id:
         member = _bot_api("GET", f"/guilds/{guild_id}/members/{user_id}")
         if member:
-            name = member.get("nick") or member.get("user", {}).get("global_name") or name
+            name = (
+                member.get("nick")
+                or member.get("user", {}).get("global_name")
+                or name
+            )
 
-    return jsonify({"id": user_id, "name": name, "avatar": user.avatar_url, "is_admin": check_access()})
+    return jsonify(
+        {"id": user_id, "name": name, "avatar": user.avatar_url, "is_admin": check_access()}
+    )
+
 
 
 @bp.route("/api/jobs")
@@ -135,7 +144,7 @@ def api_compute_stream() -> Response:
             jid = entry.split(":")[0].lower()
             if jid not in JOBS_BY_ID:
                 errors.append(f"Illegal job '{jid}' for {p['name']}")
-    
+
     if errors:
         def _error() -> Generator[str, None, None]:
             yield "event: complete\ndata: " + json.dumps({"error": ". ".join(errors)}) + "\n\n"
@@ -148,7 +157,7 @@ def api_compute_stream() -> Response:
         # Check constraints first
         from app.compute import analyze_constraints
         debug_reasons = analyze_constraints(people, constraints)
-        
+
         found_any = False
         for event_type, data in compute_parties_stream(people, constraints):
             if event_type == 'complete' and data.get('found', 0) == 0 and debug_reasons:
@@ -161,7 +170,6 @@ def api_compute_stream() -> Response:
 
 @bp.route("/api/members")
 def api_members() -> Response:
-    from app.auth import _bot_api, _guild_id
 
     guild_id = _guild_id()
     if not guild_id:
@@ -217,7 +225,7 @@ def api_parties_home_channel() -> Response:
     channel_id = data.get("channel_id", "").strip()
     if not party_name:
         return make_response(jsonify({"error": "party_name required"}), 400)
-    
+
     with db_connection() as db:
         db.execute("UPDATE parties SET home_channel_id = ? WHERE name = ?", (channel_id or None, party_name))
         db.commit()
@@ -257,12 +265,11 @@ def api_people_pool_remove() -> Response:
 def api_polls() -> Response:
     if not check_access():
         return make_response(jsonify({"error": "unauthorized"}), 403)
-    
+
     discord = get_discord()
     user = discord.fetch_user()
-    
-    from app.auth import _bot_api
-    
+
+
     body = request.get_json(force=True)
     channel_id = body.get("channel_id")
     parties = body.get("parties", [])
@@ -289,7 +296,7 @@ def api_polls() -> Response:
                 jid = m["job"].lower()
                 if jid in job_map:
                     level = job_map[jid].get("level")
-            
+
             lvl_str = f" (lv.{level})" if level else ""
             name_lines.append(f"{role_emoji.get(m['role'], '▪')} **{m['name']}**{lvl_str} — {m['job']}")
 
@@ -334,7 +341,6 @@ def api_polls() -> Response:
 @bp.route("/api/channels")
 @require_admin
 def api_channels() -> Response:
-    from app.auth import _bot_api, _guild_id
     guild_id = _guild_id()
     if not guild_id:
         return make_response(jsonify({"error": "no guild configured"}), 400)

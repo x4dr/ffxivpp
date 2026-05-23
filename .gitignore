@@ -5,3 +5,4 @@ party.db-*
 .env
 .python-version
 restart_server.sh
+.tmp/

@@ -6,25 +6,26 @@
 from __future__ import annotations
 
 import logging
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-import os
-import re
 import asyncio
-import sqlite3
+import os
 import random
-from datetime import datetime, timedelta, timezone
+import re
+import sqlite3
+from datetime import UTC, datetime
 from typing import Any
 
 import discord
+from discord import app_commands
+from discord.ui import Button, Select, View
+
 from app.compute import JOBS, JOBS_BY_ID, get_priority, parse_job_id
 from app.db import (
     add_role_id,
-    get_role_ids,
     remove_role_id,
 )
-from discord import app_commands
-from discord.ui import Button, Select, View
 
 VALID_JOBS = {j.id for j in JOBS}
 JOB_NAMES = {j.id: j.name for j in JOBS}
@@ -83,27 +84,25 @@ class PartyBot(discord.Client):
     async def scraper_loop(self) -> None:
         """Background loop to refresh character data with optimized DB locking."""
         from app.db import (
-            db_connection, 
-            update_lodestone_fetched_at, 
-            set_lodestone_link, 
-            get_next_scraper_task, 
-            delete_scraper_task, 
+            cache_character,
+            db_connection,
+            delete_scraper_task,
+            get_next_scraper_task,
             get_parties_for_lodestone_id,
-            cache_character
+            set_lodestone_link,
+            update_lodestone_fetched_at,
         )
         from app.lodestone import fetch_character
-        import sqlite3
-        import random
 
         loop = asyncio.get_event_loop()
         await asyncio.sleep(10)
         logging.info("Scraper loop started.")
-        
+
         while not self.is_closed():
             try:
                 task = get_next_scraper_task()
                 person_id = None
-                
+
                 if task:
                     lodestone_id = task['lodestone_id']
                     with db_connection() as db:
@@ -122,18 +121,18 @@ class PartyBot(discord.Client):
                         person_id = row['person_id'] if row else None
                     sleep_time = 10
                     is_priority = False
-                
+
                 if lodestone_id:
                     # 2. NETWORK IO: Run without holding any DB lock
                     data = await loop.run_in_executor(None, fetch_character, lodestone_id)
-                    
+
                     # 3. WRITE: Open only when needed using context manager
                     if data and "name" in data:
                         cache_character(lodestone_id, data)
                         update_lodestone_fetched_at(lodestone_id)
                         if person_id:
                             set_lodestone_link(person_id, lodestone_id, data["name"])
-                        
+
                         # Find party/channel/message to update
                         parties_to_update = get_parties_for_lodestone_id(lodestone_id)
                         for party_info in parties_to_update:
@@ -145,10 +144,10 @@ class PartyBot(discord.Client):
                                     await view.update_embed(channel, message)
                                 except Exception as e:
                                     logging.error(f"Failed to update embed for {party_info['name']}: {e}")
-                        
+
                         if is_priority:
                             delete_scraper_task(lodestone_id)
-                        
+
                     logging.info(f"Finished scraping {lodestone_id}.")
                 else:
                     await asyncio.sleep(sleep_time) # Wait if no tasks at all
@@ -417,7 +416,7 @@ async def setlodestone(interaction: discord.Interaction, url: str) -> None:
 
     await interaction.response.defer(ephemeral=True)
 
-    from app.db import get_db, close_db, set_lodestone_link
+    from app.db import close_db, get_db, set_lodestone_link
     from app.lodestone import fetch_character
 
     data = fetch_character(lodestone_id)
@@ -429,11 +428,11 @@ async def setlodestone(interaction: discord.Interaction, url: str) -> None:
     db = get_db()
     row = db.execute("SELECT id FROM people WHERE discord_id = ?", (str(interaction.user.id),)).fetchone()
     close_db(conn=db)
-    
+
     if not row:
         await interaction.followup.send("Could not find a linked person for your Discord account.", ephemeral=True)
         return
-        
+
     person_id = row['id']
     set_lodestone_link(person_id, lodestone_id, data["name"])
 
@@ -489,20 +488,20 @@ class RecheckButton(Button):
         super().__init__(label="Recheck Lodestone", style=discord.ButtonStyle.secondary, custom_id="recheck_lodestone")
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        from app.db import get_lodestone_link, add_scraper_task, people_pool
-        
+        from app.db import add_scraper_task, get_lodestone_link, people_pool
+
         user_id = str(interaction.user.id)
         person = next((p for p in people_pool() if p.get("discord_id") == user_id), None)
-        
+
         if not person:
             await interaction.response.send_message("You are not registered in the bot.", ephemeral=True)
             return
-            
+
         link = get_lodestone_link(person['id'])
         if not link:
             await interaction.response.send_message("No Lodestone account linked.", ephemeral=True)
             return
-            
+
         add_scraper_task(link['lodestone_id'], priority=1)
         await interaction.response.send_message("Recheck task added to queue.", ephemeral=True)
         await asyncio.sleep(10)
@@ -560,33 +559,33 @@ class PersistentPartyView(View):
     async def move_to_bottom(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         from app.db import db_connection
         party_name = interaction.message.embeds[0].title.replace("Party: ", "")
-        
+
         logging.info(f"Moving party {party_name} to bottom.")
 
         # Re-render the embed before moving to ensure it's up to date
         await self.update_embed(interaction.channel, interaction.message)
-        
+
         # Now repost the message (the 'message' object is still the old one, we need to refresh it if it was edited)
         # However, update_embed edited it. We need the new version.
-        
+
         # Actually, update_embed edits the message in place.
         # So interaction.message should now have the updated embed.
-        
+
         # Repost
         view = PersistentPartyView()
         new_msg = await interaction.channel.send(embed=interaction.message.embeds[0], view=view)
-        
+
         logging.info(f"Reposted message for party {party_name} as {new_msg.id}")
-        
+
         # Delete old
         await interaction.message.delete()
-        
+
         # Update DB
         with db_connection() as db:
             db.execute("UPDATE parties SET home_channel_id = ?, home_message_id = ? WHERE name = ?",
                        (str(interaction.channel.id), str(new_msg.id), party_name))
             db.commit()
-            
+
         logging.info(f"Updated DB for party {party_name} to channel {interaction.channel.id}, message {new_msg.id}")
 
         await interaction.response.defer()
@@ -599,25 +598,25 @@ class PersistentPartyView(View):
         return f"{base.rstrip('/')}/admin"
 
     async def update_embed(self, channel: discord.TextChannel, message: discord.Message) -> None:
-        from app.db import get_party_members, get_cached_character, constraints_from_db
-        
+        from app.db import constraints_from_db, get_cached_character, get_party_members
+
         # We need the party name. Can we extract it from the existing embed?
         party_name = message.embeds[0].title.replace("Party: ", "")
-        
+
         members = get_party_members(party_name)
         logging.info(f"Updating embed for party {party_name}, members: {members}")
         constraints = constraints_from_db(party_name)
         target_ilvl = constraints.get("min_gear_level", 0)
-        
+
         lines = []
         for m in members:
             # Fetch cached character data
             char_data = None
             if m['lodestone_id']:
                 char_data = get_cached_character(m['lodestone_id'])
-            
+
             line = f"**{m['name']}**"
-            
+
             # Status Logic
             status = "Ready"
             if not m['lodestone_id']:
@@ -626,29 +625,29 @@ class PersistentPartyView(View):
                 status = "Loading"
             else:
                 fetched_at = datetime.fromisoformat(char_data['fetched_at'])
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 days_old = (now - fetched_at).days
                 current_ilvl = char_data.get("avg_ilvl", 0)
-                
+
                 if days_old > 3:
                     status = f"Outdated ({days_old}d)"
                 elif target_ilvl > 0 and current_ilvl < target_ilvl:
                     status = f"Low Gear ({current_ilvl}/{target_ilvl})"
-            
+
             line += f" — {status}"
-            
+
             if m['jobs']:
                 line += f" ({_build_job_list(m['jobs'])})"
             else:
                 line += " — Missing Jobs"
-            
+
             lines.append(line)
-        
-        embed = discord.Embed(title=f"Party: {party_name}", 
+
+        embed = discord.Embed(title=f"Party: {party_name}",
                               url=self._get_dashboard_url(party_name),
-                              description="\n".join(lines) if lines else "No members.", 
+                              description="\n".join(lines) if lines else "No members.",
                               color=discord.Color.blue())
-        
+
         logging.info(f"Editing message for party {party_name} with embed: {embed.description}")
         await message.edit(embed=embed, view=self)
 
@@ -660,11 +659,11 @@ class PersistentPartyView(View):
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_home_channel(interaction: discord.Interaction, party_name: str) -> None:
     from app.db import db_connection
-    
+
     # Check if party exists
     with db_connection() as db:
         party = db.execute("SELECT name FROM parties WHERE name = ?", (party_name,)).fetchone()
-        
+
     if not party:
         view = CreatePartyView(party_name)
         await interaction.response.send_message(f"Party '{party_name}' not found. Create it?", view=view, ephemeral=True)
@@ -676,19 +675,19 @@ async def setup_home_channel(interaction: discord.Interaction, party_name: str) 
 async def _perform_setup(interaction: discord.Interaction, party_name: str) -> None:
     channel = interaction.channel
     # Add the URL here too, for the initial message
-    embed = discord.Embed(title=f"Party: {party_name}", 
+    embed = discord.Embed(title=f"Party: {party_name}",
                           url=PersistentPartyView()._get_dashboard_url(party_name),
-                          description="Manage your party status here.", 
+                          description="Manage your party status here.",
                           color=discord.Color.blue())
     view = PersistentPartyView()
     msg = await channel.send(embed=embed, view=view)
-    
+
     from app.db import db_connection
     with db_connection() as db:
-        db.execute("UPDATE parties SET home_channel_id = ?, home_message_id = ? WHERE name = ?", 
+        db.execute("UPDATE parties SET home_channel_id = ?, home_message_id = ? WHERE name = ?",
                    (str(channel.id), str(msg.id), party_name))
         db.commit()
-    
+
     # If this was called from a button, edit the original response
     if interaction.response.is_done():
         await interaction.followup.send(f"Home channel setup for {party_name}!", ephemeral=True)

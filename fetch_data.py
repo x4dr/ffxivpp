@@ -1,6 +1,5 @@
-import sqlite3
-from app.lodestone import fetch_character
 from app.db import set_lodestone_link
+from app.lodestone import fetch_character
 
 # Mapping discord_id -> lodestone_id
 mappings = {

@@ -213,8 +213,17 @@ def parties_list() -> list[str]:
 
 def get_parties_details() -> list[dict[str, str | None]]:
     with db_connection() as db:
-        rows = cast(list[sqlite3.Row], db.execute("SELECT name, home_channel_id FROM parties ORDER BY name").fetchall())
-        return [{"name": str(r["name"]), "home_channel_id": r["home_channel_id"] if r["home_channel_id"] is not None else None} for r in rows]
+        rows = cast(
+            list[sqlite3.Row],
+            db.execute("SELECT name, home_channel_id FROM parties ORDER BY name").fetchall(),
+        )
+        return [
+            {
+                "name": str(r["name"]),
+                "home_channel_id": r["home_channel_id"] if r["home_channel_id"] is not None else None,
+            }
+            for r in rows
+        ]
 
 
 def create_party(name: str) -> None:
@@ -222,7 +231,10 @@ def create_party(name: str) -> None:
         db.execute("INSERT INTO parties (name) VALUES (?)", (name,))
         cfg_rows = db.execute("SELECT key, value FROM party_constraints WHERE party_name='Default'").fetchall()
         for r in cfg_rows:
-            db.execute("INSERT OR REPLACE INTO party_constraints (party_name, key, value) VALUES (?, ?, ?)", (name, r["key"], r["value"]))
+            db.execute(
+                "INSERT OR REPLACE INTO party_constraints (party_name, key, value) VALUES (?, ?, ?)",
+                (name, r["key"], r["value"]),
+            )
         db.commit()
 
 
@@ -258,7 +270,13 @@ def people_from_db(party_name: str | None = None) -> list[dict[str, Any]]:
             (party_name,),
         ).fetchall()
         return [
-            {"id": r["id"], "name": r["name"], "jobs": [j for j in (r["jobs"] or "").split(",") if j], "discord_id": r["discord_id"], "has_lodestone": r["lodestone_id"] is not None}
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "jobs": [j for j in (r["jobs"] or "").split(",") if j],
+                "discord_id": r["discord_id"],
+                "has_lodestone": r["lodestone_id"] is not None,
+            }
             for r in rows
         ]
 
@@ -267,7 +285,13 @@ def people_pool() -> list[dict[str, Any]]:
     with db_connection() as db:
         rows = db.execute("SELECT p.id, p.name, p.jobs, p.discord_id, l.lodestone_id FROM people p LEFT JOIN lodestone_links l ON p.id = l.person_id ORDER BY p.name").fetchall()
         return [
-            {"id": r["id"], "name": r["name"], "jobs": [j for j in (r["jobs"] or "").split(",") if j], "discord_id": r["discord_id"], "has_lodestone": r["lodestone_id"] is not None}
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "jobs": [j for j in (r["jobs"] or "").split(",") if j],
+                "discord_id": r["discord_id"],
+                "has_lodestone": r["lodestone_id"] is not None,
+            }
             for r in rows
         ]
 
@@ -283,8 +307,14 @@ def people_to_db(data: list[dict[str, Any]], party_name: str | None = None) -> N
                 continue
             jobs = ",".join(entry.get("jobs", []))
             discord_id = entry.get("discord_id")
-            db.execute("INSERT OR REPLACE INTO people (name, jobs, discord_id) VALUES (?, ?, ?)", (name, jobs, discord_id))
-            db.execute("INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES (?, ?)", (party_name, name))
+            db.execute(
+                "INSERT OR REPLACE INTO people (name, jobs, discord_id) VALUES (?, ?, ?)",
+                (name, jobs, discord_id),
+            )
+            db.execute(
+                "INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES (?, ?)",
+                (party_name, name),
+            )
         db.commit()
 
 

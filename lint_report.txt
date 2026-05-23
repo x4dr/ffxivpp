@@ -1,0 +1,883 @@
+E501 Line too long (104 > 100)
+  --> app/compute.py:77:101
+   |
+75 |         return sum(
+76 |             1 for j in JOBS
+77 |             if j.role == role and (not sub or j.sub == sub) and (not dps_type or j.dps_type == dps_type)
+   |                                                                                                     ^^^^
+78 |         )
+   |
+
+E501 Line too long (108 > 100)
+   --> app/db.py:164:101
+    |
+162 |         for k, v in default_cfg:
+163 |             db.execute(
+164 |                 "INSERT OR IGNORE INTO party_constraints (party_name, key, value) VALUES ('Default', ?, ?)",
+    |                                                                                                     ^^^^^^^^
+165 |                 (k, v),
+166 |             )
+    |
+
+E501 Line too long (109 > 100)
+   --> app/db.py:189:101
+    |
+187 |     with db_connection() as db:
+188 |         row = db.execute(
+189 |             "SELECT lodestone_id, priority FROM scraper_tasks ORDER BY priority DESC, created_at ASC LIMIT 1"
+    |                                                                                                     ^^^^^^^^^
+190 |         ).fetchone()
+191 |         if not row:
+    |
+
+E501 Line too long (120 > 100)
+   --> app/db.py:216:101
+    |
+214 | def get_parties_details() -> list[dict[str, str | None]]:
+215 |     with db_connection() as db:
+216 |         rows = cast(list[sqlite3.Row], db.execute("SELECT name, home_channel_id FROM parties ORDER BY name").fetchall())
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^
+217 |         return [{"name": str(r["name"]), "home_channel_id": r["home_channel_id"] if r["home_channel_id"] is not None else None} for r…
+    |
+
+E501 Line too long (142 > 100)
+   --> app/db.py:217:101
+    |
+215 | …
+216 | …CT name, home_channel_id FROM parties ORDER BY name").fetchall())
+217 | …id": r["home_channel_id"] if r["home_channel_id"] is not None else None} for r in rows]
+    |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+E501 Line too long (111 > 100)
+   --> app/db.py:223:101
+    |
+221 |     with db_connection() as db:
+222 |         db.execute("INSERT INTO parties (name) VALUES (?)", (name,))
+223 |         cfg_rows = db.execute("SELECT key, value FROM party_constraints WHERE party_name='Default'").fetchall()
+    |                                                                                                     ^^^^^^^^^^^
+224 |         for r in cfg_rows:
+225 |             db.execute("INSERT OR REPLACE INTO party_constraints (party_name, key, value) VALUES (?, ?, ?)", (name, r["key"], r["valu…
+    |
+
+E501 Line too long (138 > 100)
+   --> app/db.py:225:101
+    |
+223 | … party_constraints WHERE party_name='Default'").fetchall()
+224 | …
+225 | …constraints (party_name, key, value) VALUES (?, ?, ?)", (name, r["key"], r["value"]))
+    |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+226 | …
+    |
+
+E501 Line too long (103 > 100)
+   --> app/db.py:242:101
+    |
+240 | def switch_party(name: str) -> None:
+241 |     with db_connection() as db:
+242 |         db.execute("INSERT OR REPLACE INTO app_state (key, value) VALUES ('active_party', ?)", (name,))
+    |                                                                                                     ^^^
+243 |         db.commit()
+    |
+
+E501 Line too long (181 > 100)
+   --> app/db.py:261:101
+    |
+259 | …
+260 | …
+261 | …"] or "").split(",") if j], "discord_id": r["discord_id"], "has_lodestone": r["lodestone_id"] is not None}
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+262 | …
+263 | …
+    |
+
+E501 Line too long (177 > 100)
+   --> app/db.py:268:101
+    |
+266 | …
+267 | …
+268 | …odestone_id FROM people p LEFT JOIN lodestone_links l ON p.id = l.person_id ORDER BY p.name").fetchall()
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+269 | …
+270 | …bs"] or "").split(",") if j], "discord_id": r["discord_id"], "has_lodestone": r["lodestone_id"] is not None}
+    |
+
+E501 Line too long (181 > 100)
+   --> app/db.py:270:101
+    |
+268 | …estone_id FROM people p LEFT JOIN lodestone_links l ON p.id = l.person_id ORDER BY p.name").fetchall()
+269 | …
+270 | …"] or "").split(",") if j], "discord_id": r["discord_id"], "has_lodestone": r["lodestone_id"] is not None}
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+271 | …
+272 | …
+    |
+
+E501 Line too long (123 > 100)
+   --> app/db.py:286:101
+    |
+284 |             jobs = ",".join(entry.get("jobs", []))
+285 |             discord_id = entry.get("discord_id")
+286 |             db.execute("INSERT OR REPLACE INTO people (name, jobs, discord_id) VALUES (?, ?, ?)", (name, jobs, discord_id))
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^
+287 |             db.execute("INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES (?, ?)", (party_name, name))
+288 |         db.commit()
+    |
+
+E501 Line too long (120 > 100)
+   --> app/db.py:287:101
+    |
+285 |             discord_id = entry.get("discord_id")
+286 |             db.execute("INSERT OR REPLACE INTO people (name, jobs, discord_id) VALUES (?, ?, ?)", (name, jobs, discord_id))
+287 |             db.execute("INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES (?, ?)", (party_name, name))
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^
+288 |         db.commit()
+    |
+
+E501 Line too long (112 > 100)
+   --> app/db.py:301:101
+    |
+299 |             jobs = ",".join(entry.get("jobs", []))
+300 |             discord_id = entry.get("discord_id")
+301 |             db.execute("INSERT INTO people (name, jobs, discord_id) VALUES (?, ?, ?)", (name, jobs, discord_id))
+    |                                                                                                     ^^^^^^^^^^^^
+302 |         db.commit()
+    |
+
+E501 Line too long (123 > 100)
+   --> app/db.py:309:101
+    |
+307 |         party_name = active_party_name()
+308 |     with db_connection() as db:
+309 |         db.execute("INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES (?, ?)", (party_name, person_name))
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^
+310 |         db.commit()
+    |
+
+E501 Line too long (114 > 100)
+   --> app/db.py:317:101
+    |
+315 |         party_name = active_party_name()
+316 |     with db_connection() as db:
+317 |         db.execute("DELETE FROM party_people WHERE party_name = ? AND person_name = ?", (party_name, person_name))
+    |                                                                                                     ^^^^^^^^^^^^^^
+318 |         db.commit()
+    |
+
+W291 Trailing whitespace
+   --> app/db.py:336:91
+    |
+334 |     with db_connection() as db:
+335 |         rows = db.execute(
+336 |             """SELECT p.id, p.name, p.jobs, l.lodestone_id, l.character_name, c.fetched_at 
+    |                                                                                           ^
+337 |                FROM people p
+338 |                JOIN party_people pp ON pp.person_name = p.name
+    |
+help: Remove trailing whitespace
+
+W291 Trailing whitespace
+   --> app/db.py:360:67
+    |
+358 |     with db_connection() as db:
+359 |         rows = db.execute(
+360 |             """SELECT p.home_channel_id, p.home_message_id, p.name 
+    |                                                                   ^
+361 |                FROM parties p
+362 |                JOIN party_people pp ON p.name = pp.party_name
+    |
+help: Remove trailing whitespace
+
+E501 Line too long (122 > 100)
+   --> app/db.py:368:101
+    |
+366 |             (lodestone_id,),
+367 |         ).fetchall()
+368 |         return [{"channel_id": r["home_channel_id"], "message_id": r["home_message_id"], "name": r["name"]} for r in rows]
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+E501 Line too long (105 > 100)
+   --> app/db.py:394:101
+    |
+392 |                     out[r["key"]] = raw
+393 |         excl_rows = db.execute(
+394 |             "SELECT rowid, jobs FROM party_exclusions WHERE party_name = ? ORDER BY rowid", (party_name,)
+    |                                                                                                     ^^^^^
+395 |         ).fetchall()
+396 |         out["exclusions"] = [r["jobs"].split(",") for r in excl_rows]
+    |
+
+E501 Line too long (121 > 100)
+   --> app/db.py:409:101
+    |
+407 |                 continue
+408 |             store = str(v).lower() if isinstance(v, bool) else str(v)
+409 |             db.execute("INSERT INTO party_constraints (party_name, key, value) VALUES (?, ?, ?)", (party_name, k, store))
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^
+410 |         db.execute("DELETE FROM party_exclusions WHERE party_name = ?", (party_name,))
+411 |         for group in data.get("exclusions", []):
+    |
+
+E501 Line too long (118 > 100)
+   --> app/db.py:412:101
+    |
+410 |         db.execute("DELETE FROM party_exclusions WHERE party_name = ?", (party_name,))
+411 |         for group in data.get("exclusions", []):
+412 |             db.execute("INSERT INTO party_exclusions (party_name, jobs) VALUES (?, ?)", (party_name, ",".join(group)))
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^
+413 |         db.commit()
+    |
+
+E501 Line too long (103 > 100)
+   --> app/db.py:421:101
+    |
+419 | def get_role_ids(guild_id: str) -> set[str]:
+420 |     with db_connection() as db:
+421 |         rows = db.execute("SELECT role_id FROM admin_roles WHERE guild_id = ?", (guild_id,)).fetchall()
+    |                                                                                                     ^^^
+422 |         return {r["role_id"] for r in rows}
+    |
+
+E501 Line too long (110 > 100)
+   --> app/db.py:427:101
+    |
+425 | def add_role_id(guild_id: str, role_id: str) -> None:
+426 |     with db_connection() as db:
+427 |         db.execute("INSERT OR IGNORE INTO admin_roles (guild_id, role_id) VALUES (?, ?)", (guild_id, role_id))
+    |                                                                                                     ^^^^^^^^^^
+428 |         db.commit()
+    |
+
+E501 Line too long (101 > 100)
+   --> app/db.py:433:101
+    |
+431 | def remove_role_id(guild_id: str, role_id: str) -> None:
+432 |     with db_connection() as db:
+433 |         db.execute("DELETE FROM admin_roles WHERE guild_id = ? AND role_id = ?", (guild_id, role_id))
+    |                                                                                                     ^
+434 |         db.commit()
+    |
+
+E501 Line too long (101 > 100)
+   --> app/db.py:443:101
+    |
+443 | def set_lodestone_link(person_id: int, lodestone_id: str, character_name: str | None = None) -> None:
+    |                                                                                                     ^
+444 |     from datetime import datetime
+    |
+
+E501 Line too long (116 > 100)
+   --> app/db.py:449:101
+    |
+447 |     with db_connection() as db:
+448 |         db.execute(
+449 |             "INSERT INTO lodestone_links (person_id, lodestone_id, character_name, fetched_at) VALUES (?, ?, ?, ?) "
+    |                                                                                                     ^^^^^^^^^^^^^^^^
+450 |             "ON CONFLICT(person_id, lodestone_id) DO UPDATE SET character_name = excluded.character_name",
+451 |             (person_id, lodestone_id, character_name, now),
+    |
+
+E501 Line too long (106 > 100)
+   --> app/db.py:450:101
+    |
+448 |         db.execute(
+449 |             "INSERT INTO lodestone_links (person_id, lodestone_id, character_name, fetched_at) VALUES (?, ?, ?, ?) "
+450 |             "ON CONFLICT(person_id, lodestone_id) DO UPDATE SET character_name = excluded.character_name",
+    |                                                                                                     ^^^^^^
+451 |             (person_id, lodestone_id, character_name, now),
+452 |         )
+    |
+
+E501 Line too long (103 > 100)
+   --> app/db.py:471:101
+    |
+469 |     with db_connection() as db:
+470 |         row = db.execute(
+471 |             "SELECT lodestone_id, character_name, fetched_at FROM lodestone_links WHERE person_id = ?",
+    |                                                                                                     ^^^
+472 |             (person_id,),
+473 |         ).fetchone()
+    |
+
+E501 Line too long (126 > 100)
+   --> app/db.py:476:101
+    |
+474 |         if not row:
+475 |             return None
+476 |         return {"lodestone_id": row["lodestone_id"], "character_name": row["character_name"], "fetched_at": row["fetched_at"]}
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+
+E501 Line too long (103 > 100)
+   --> app/db.py:485:101
+    |
+483 |     with db_connection() as db:
+484 |         db.execute(
+485 |             "INSERT OR REPLACE INTO character_cache (lodestone_id, data, fetched_at) VALUES (?, ?, ?)",
+    |                                                                                                     ^^^
+486 |             (lodestone_id, json.dumps(data), now),
+487 |         )
+    |
+
+N817 CamelCase `BeautifulSoup` imported as acronym `BS`
+  --> app/lodestone.py:11:17
+   |
+10 | import requests as http
+11 | from bs4 import BeautifulSoup as BS
+   |                 ^^^^^^^^^^^^^^^^^^^
+12 |
+13 | from app.db import cache_character, get_cached_character
+   |
+
+N806 Variable `GEAR_SLOTS` in function should be lowercase
+   --> app/lodestone.py:114:9
+    |
+113 |         # Average item level — fetch equipment tooltips in parallel for valid slots
+114 |         GEAR_SLOTS = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12]
+    |         ^^^^^^^^^^
+115 |         avg_ilvl = None
+116 |         ilvls = []
+    |
+
+E501 Line too long (118 > 100)
+  --> app/routes.py:75:101
+   |
+73 | @bp.route("/api/jobs")
+74 | def api_jobs() -> Response:
+75 |     return jsonify([{"id": j.id, "name": j.name, "role": j.role, "sub": j.sub, "dps_type": j.dps_type} for j in JOBS])
+   |                                                                                                     ^^^^^^^^^^^^^^^^^^
+   |
+
+E501 Line too long (118 > 100)
+   --> app/routes.py:124:101
+    |
+122 |     for group in data:
+123 |         if isinstance(group, list) and group:
+124 |             db.execute("INSERT INTO party_exclusions (party_name, jobs) VALUES (?, ?)", (party_name, ",".join(group)))
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^
+125 |     db.commit()
+126 |     return jsonify({"ok": True})
+    |
+
+E701 Multiple statements on one line (colon)
+   --> app/routes.py:143:25
+    |
+141 |     for p in raw:
+142 |         for entry in p.get("jobs", []):
+143 |             if not entry: continue
+    |                         ^
+144 |             jid = entry.split(":")[0].lower()
+145 |             if jid not in JOBS_BY_ID:
+    |
+
+E501 Line too long (107 > 100)
+   --> app/routes.py:164:101
+    |
+162 |         for event_type, data in compute_parties_stream(people, constraints):
+163 |             if event_type == 'complete' and data.get('found', 0) == 0 and debug_reasons:
+164 |                 data['error'] = "No valid combinations found. Possible issues: " + "; ".join(debug_reasons)
+    |                                                                                                     ^^^^^^^
+165 |             yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+166 |             found_any = True
+    |
+
+F841 Local variable `found_any` is assigned to but never used
+   --> app/routes.py:166:13
+    |
+164 |                 data['error'] = "No valid combinations found. Possible issues: " + "; ".join(debug_reasons)
+165 |             yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+166 |             found_any = True
+    |             ^^^^^^^^^
+167 |
+168 |     return Response(stream_with_context(_generate()), mimetype="text/event-stream")
+    |
+help: Remove assignment to unused variable `found_any`
+
+E501 Line too long (109 > 100)
+   --> app/routes.py:230:101
+    |
+229 |     with db_connection() as db:
+230 |         db.execute("UPDATE parties SET home_channel_id = ? WHERE name = ?", (channel_id or None, party_name))
+    |                                                                                                     ^^^^^^^^^
+231 |         db.commit()
+232 |     return jsonify({"ok": True})
+    |
+
+E501 Line too long (104 > 100)
+   --> app/routes.py:301:101
+    |
+300 |             lvl_str = f" (lv.{level})" if level else ""
+301 |             name_lines.append(f"{role_emoji.get(m['role'], '▪')} **{m['name']}**{lvl_str} — {m['job']}")
+    |                                                                                                     ^^^^
+302 |
+303 |         embed_fields.append({
+    |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:12:1
+   |
+10 | logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+11 |
+12 | import asyncio
+   | ^^^^^^^^^^^^^^
+13 | import os
+14 | import random
+   |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:13:1
+   |
+12 | import asyncio
+13 | import os
+   | ^^^^^^^^^
+14 | import random
+15 | import re
+   |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:14:1
+   |
+12 | import asyncio
+13 | import os
+14 | import random
+   | ^^^^^^^^^^^^^
+15 | import re
+16 | import sqlite3
+   |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:15:1
+   |
+13 | import os
+14 | import random
+15 | import re
+   | ^^^^^^^^^
+16 | import sqlite3
+17 | from datetime import UTC, datetime
+   |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:16:1
+   |
+14 | import random
+15 | import re
+16 | import sqlite3
+   | ^^^^^^^^^^^^^^
+17 | from datetime import UTC, datetime
+18 | from typing import Any
+   |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:17:1
+   |
+15 | import re
+16 | import sqlite3
+17 | from datetime import UTC, datetime
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+18 | from typing import Any
+   |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:18:1
+   |
+16 | import sqlite3
+17 | from datetime import UTC, datetime
+18 | from typing import Any
+   | ^^^^^^^^^^^^^^^^^^^^^^
+19 |
+20 | import discord
+   |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:20:1
+   |
+18 | from typing import Any
+19 |
+20 | import discord
+   | ^^^^^^^^^^^^^^
+21 | from discord import app_commands
+22 | from discord.ui import Button, Select, View
+   |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:21:1
+   |
+20 | import discord
+21 | from discord import app_commands
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+22 | from discord.ui import Button, Select, View
+   |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:22:1
+   |
+20 | import discord
+21 | from discord import app_commands
+22 | from discord.ui import Button, Select, View
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+23 |
+24 | from app.compute import JOBS, JOBS_BY_ID, get_priority, parse_job_id
+   |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:24:1
+   |
+22 | from discord.ui import Button, Select, View
+23 |
+24 | from app.compute import JOBS, JOBS_BY_ID, get_priority, parse_job_id
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+25 | from app.db import (
+26 |     add_role_id,
+   |
+
+E402 Module level import not at top of file
+  --> bot/commands.py:25:1
+   |
+24 |   from app.compute import JOBS, JOBS_BY_ID, get_priority, parse_job_id
+25 | / from app.db import (
+26 | |     add_role_id,
+27 | |     remove_role_id,
+28 | | )
+   | |_^
+29 |
+30 |   VALID_JOBS = {j.id for j in JOBS}
+   |
+
+E501 Line too long (132 > 100)
+   --> bot/commands.py:109:101
+    |
+107 |                     lodestone_id = task['lodestone_id']
+108 |                     with db_connection() as db:
+109 |                         row = db.execute("SELECT person_id FROM lodestone_links WHERE lodestone_id = ?", (lodestone_id,)).fetchone()
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+110 |                         person_id = row['person_id'] if row else None
+111 |                     logging.info(f"Scraping high-priority {lodestone_id}...")
+    |
+
+E501 Line too long (113 > 100)
+   --> bot/commands.py:118:101
+    |
+116 |                     with db_connection() as db:
+117 |                         row = db.execute(
+118 |                             "SELECT person_id, lodestone_id FROM lodestone_links ORDER BY fetched_at ASC LIMIT 1"
+    |                                                                                                     ^^^^^^^^^^^^^
+119 |                         ).fetchone()
+120 |                         lodestone_id = row['lodestone_id'] if row else None
+    |
+
+E501 Line too long (104 > 100)
+   --> bot/commands.py:142:101
+    |
+140 | …                     if channel and isinstance(channel, discord.TextChannel):
+141 | …                         try:
+142 | …                             message = await channel.fetch_message(int(party_info['message_id']))
+    |                                                                                               ^^^^
+143 | …                             view = PersistentPartyView()
+144 | …                             await view.update_embed(channel, message)
+    |
+
+E501 Line too long (106 > 100)
+   --> bot/commands.py:146:101
+    |
+144 |                                     await view.update_embed(channel, message)
+145 |                                 except Exception as e:
+146 |                                     logging.error(f"Failed to update embed for {party_info['name']}: {e}")
+    |                                                                                                     ^^^^^^
+147 |
+148 |                         if is_priority:
+    |
+
+E501 Line too long (101 > 100)
+   --> bot/commands.py:230:101
+    |
+228 |         with db_connection() as db:
+229 |             db.execute(
+230 |                 "INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES ('Default', ?)",
+    |                                                                                                     ^
+231 |                 (name,),
+232 |             )
+    |
+
+E501 Line too long (102 > 100)
+   --> bot/commands.py:299:101
+    |
+297 |         opts.append(discord.SelectOption(label="──────────", value="---", disabled=True))
+298 |         for role, label, emoji in ROLES:
+299 |             opts.append(discord.SelectOption(label=f"All {label}s", emoji=emoji, value=f"all_{role}"))
+    |                                                                                                     ^^
+300 |         super().__init__(placeholder="Add a job…", options=opts)
+301 |         self._main_view = parent
+    |
+
+E501 Line too long (110 > 100)
+   --> bot/commands.py:312:101
+    |
+310 |             self._main_view._save()
+311 |             self._main_view._build()
+312 |             await interaction.response.edit_message(embed=self._main_view.build_embed(), view=self._main_view)
+    |                                                                                                     ^^^^^^^^^^
+313 |             return
+314 |         jobs_for_role = ROLE_JOBS[val]
+    |
+
+E501 Line too long (106 > 100)
+   --> bot/commands.py:351:101
+    |
+349 |         self._main_view._save()
+350 |         self._main_view._build()
+351 |         await interaction.response.edit_message(embed=self._main_view.build_embed(), view=self._main_view)
+    |                                                                                                     ^^^^^^
+    |
+
+E501 Line too long (113 > 100)
+   --> bot/commands.py:357:101
+    |
+355 |     def __init__(self, parent: MyJobsView) -> None:
+356 |         opts = [
+357 |             discord.SelectOption(label=f"{JOB_NAMES.get(jid, jid.upper())} [prio {prio}]", value=f"{jid}:{prio}")
+    |                                                                                                     ^^^^^^^^^^^^^
+358 |             for jid, prio in parent.jobs
+359 |         ]
+    |
+
+E501 Line too long (107 > 100)
+   --> bot/commands.py:397:101
+    |
+395 |         else:
+396 |             new_prio = int(val)
+397 |             self._main_view.jobs = [(j, new_prio if j == self.jid else p) for j, p in self._main_view.jobs]
+    |                                                                                                     ^^^^^^^
+398 |         self._main_view._save()
+399 |         self._main_view._build()
+    |
+
+E501 Line too long (106 > 100)
+   --> bot/commands.py:400:101
+    |
+398 |         self._main_view._save()
+399 |         self._main_view._build()
+400 |         await interaction.response.edit_message(embed=self._main_view.build_embed(), view=self._main_view)
+    |                                                                                                     ^^^^^^
+    |
+
+E501 Line too long (106 > 100)
+   --> bot/commands.py:429:101
+    |
+427 |     # Find the person_id by discord_id
+428 |     db = get_db()
+429 |     row = db.execute("SELECT id FROM people WHERE discord_id = ?", (str(interaction.user.id),)).fetchone()
+    |                                                                                                     ^^^^^^
+430 |     close_db(conn=db)
+    |
+
+E501 Line too long (115 > 100)
+   --> bot/commands.py:433:101
+    |
+432 |     if not row:
+433 |         await interaction.followup.send("Could not find a linked person for your Discord account.", ephemeral=True)
+    |                                                                                                     ^^^^^^^^^^^^^^^
+434 |         return
+    |
+
+E501 Line too long (103 > 100)
+   --> bot/commands.py:454:101
+    |
+452 |         embed.add_field(name="Average Item Level", value=str(data["avg_ilvl"]), inline=False)
+453 |     if job_lines:
+454 |         embed.add_field(name=f"Jobs ({len(job_lines)})", value="\n".join(job_lines[:15]), inline=False)
+    |                                                                                                     ^^^
+455 |     if data.get("server"):
+456 |         embed.set_footer(text=f"{data['server']}  •  {data.get('source', '')}")
+    |
+
+E501 Line too long (102 > 100)
+   --> bot/commands.py:475:101
+    |
+475 | @client.tree.command(name="admin-role-remove", description="Remove a role from admin panel whitelist")
+    |                                                                                                     ^^
+476 | @app_commands.describe(role="Role to remove from whitelist")
+477 | @app_commands.checks.has_permissions(administrator=True)
+    |
+
+E501 Line too long (119 > 100)
+   --> bot/commands.py:488:101
+    |
+486 | class RecheckButton(Button):
+487 |     def __init__(self) -> None:
+488 |         super().__init__(label="Recheck Lodestone", style=discord.ButtonStyle.secondary, custom_id="recheck_lodestone")
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^
+489 |
+490 |     async def callback(self, interaction: discord.Interaction) -> None:
+    |
+
+E501 Line too long (105 > 100)
+   --> bot/commands.py:497:101
+    |
+496 |         if not person:
+497 |             await interaction.response.send_message("You are not registered in the bot.", ephemeral=True)
+    |                                                                                                     ^^^^^
+498 |             return
+    |
+
+E501 Line too long (109 > 100)
+   --> bot/commands.py:516:101
+    |
+514 | class DashboardButton(Button):
+515 |     def __init__(self) -> None:
+516 |         super().__init__(label="Dashboard", style=discord.ButtonStyle.secondary, custom_id="party_dashboard")
+    |                                                                                                     ^^^^^^^^^
+517 |
+518 |     async def callback(self, interaction: discord.Interaction) -> None:
+    |
+
+E501 Line too long (107 > 100)
+   --> bot/commands.py:532:101
+    |
+530 |     async def party_join(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+531 |         from app.db import add_person_to_party
+532 |         logging.info(f"Join button clicked by {interaction.user.display_name} (ID: {interaction.user.id})")
+    |                                                                                                     ^^^^^^^
+533 |         party_name = interaction.message.embeds[0].title.replace("Party: ", "")
+534 |         add_person_to_party(interaction.user.display_name, str(interaction.user.id), party_name)
+    |
+
+E501 Line too long (101 > 100)
+   --> bot/commands.py:540:101
+    |
+539 |     @discord.ui.button(label="Leave", style=discord.ButtonStyle.danger, custom_id="party_leave")
+540 |     async def party_leave(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+    |                                                                                                     ^
+541 |         from app.db import remove_person_from_party
+542 |         logging.info(f"Leave button clicked by {interaction.user.display_name}")
+    |
+
+E501 Line too long (103 > 100)
+   --> bot/commands.py:549:101
+    |
+547 |         await self.update_embed(interaction.channel, interaction.message)
+548 |
+549 |     @discord.ui.button(label="Set Jobs", style=discord.ButtonStyle.primary, custom_id="party_set_jobs")
+    |                                                                                                     ^^^
+550 |     async def set_jobs(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+551 |         from bot.commands import MyJobsView, _load_person
+    |
+
+E501 Line too long (114 > 100)
+   --> bot/commands.py:558:101
+    |
+556 |         await interaction.response.send_message(embed=view.build_embed(), view=view, ephemeral=True)
+557 |
+558 |     @discord.ui.button(label="Move to Bottom", style=discord.ButtonStyle.secondary, custom_id="party_move_bottom")
+    |                                                                                                     ^^^^^^^^^^^^^^
+559 |     async def move_to_bottom(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+560 |         from app.db import db_connection
+    |
+
+E501 Line too long (104 > 100)
+   --> bot/commands.py:559:101
+    |
+558 |     @discord.ui.button(label="Move to Bottom", style=discord.ButtonStyle.secondary, custom_id="party_move_bottom")
+559 |     async def move_to_bottom(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+    |                                                                                                     ^^^^
+560 |         from app.db import db_connection
+561 |         party_name = interaction.message.embeds[0].title.replace("Party: ", "")
+    |
+
+E501 Line too long (116 > 100)
+   --> bot/commands.py:568:101
+    |
+566 |         await self.update_embed(interaction.channel, interaction.message)
+567 |
+568 |         # Now repost the message (the 'message' object is still the old one, we need to refresh it if it was edited)
+    |                                                                                                     ^^^^^^^^^^^^^^^^
+569 |         # However, update_embed edited it. We need the new version.
+    |
+
+E501 Line too long (116 > 100)
+   --> bot/commands.py:589:101
+    |
+587 |             db.commit()
+588 |
+589 |         logging.info(f"Updated DB for party {party_name} to channel {interaction.channel.id}, message {new_msg.id}")
+    |                                                                                                     ^^^^^^^^^^^^^^^^
+590 |
+591 |         await interaction.response.defer()
+    |
+
+E501 Line too long (114 > 100)
+   --> bot/commands.py:657:101
+    |
+657 | @client.tree.command(name="setup-home-channel", description="Setup the persistent home channel embed for a party")
+    |                                                                                                     ^^^^^^^^^^^^^^
+658 | @app_commands.describe(party_name="The name of the party to set up")
+659 | @app_commands.checks.has_permissions(administrator=True)
+    |
+
+E501 Line too long (121 > 100)
+   --> bot/commands.py:669:101
+    |
+667 |     if not party:
+668 |         view = CreatePartyView(party_name)
+669 |         await interaction.response.send_message(f"Party '{party_name}' not found. Create it?", view=view, ephemeral=True)
+    |                                                                                                     ^^^^^^^^^^^^^^^^^^^^^
+670 |         return
+    |
+
+E501 Line too long (104 > 100)
+   --> bot/commands.py:695:101
+    |
+693 |         await interaction.followup.send(f"Home channel setup for {party_name}!", ephemeral=True)
+694 |     else:
+695 |         await interaction.response.send_message(f"Home channel setup for {party_name}!", ephemeral=True)
+    |                                                                                                     ^^^^
+    |
+
+F841 Local variable `mock_cache` is assigned to but never used
+  --> tests/test_scraper.py:17:45
+   |
+15 |          patch('app.db.delete_scraper_task') as mock_del_task, \
+16 |          patch('app.db.get_parties_for_lodestone_id') as mock_get_parties, \
+17 |          patch('app.db.cache_character') as mock_cache, \
+   |                                             ^^^^^^^^^^
+18 |          patch('app.db.db_connection') as mock_db, \
+19 |          patch('app.lodestone.fetch_character', new_callable=MagicMock) as mock_fetch, \
+   |
+help: Remove assignment to unused variable `mock_cache`
+
+E501 Line too long (113 > 100)
+  --> tests/test_scraper.py:25:101
+   |
+23 |         mock_get_task.return_value = {'lodestone_id': '123', 'priority': 1}
+24 |         # Ensure db_connection() context manager returns a mock that doesn't fail
+25 |         mock_db.return_value.__enter__.return_value.execute.return_value.fetchone.return_value = {'person_id': 1}
+   |                                                                                                     ^^^^^^^^^^^^^
+26 |
+27 |         mock_fetch.return_value = {'name': 'TestChar', 'avg_ilvl': 700}
+   |
+
+F841 Local variable `mock_cache` is assigned to but never used
+  --> tests/test_scraper.py:48:45
+   |
+46 |          patch('app.db.db_connection') as mock_db, \
+47 |          patch('app.db.get_parties_for_lodestone_id') as mock_get_parties, \
+48 |          patch('app.db.cache_character') as mock_cache, \
+   |                                             ^^^^^^^^^^
+49 |          patch('app.lodestone.fetch_character', new_callable=MagicMock) as mock_fetch, \
+50 |          patch('bot.commands.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+   |
+help: Remove assignment to unused variable `mock_cache`
+
+E501 Line too long (136 > 100)
+  --> tests/test_scraper.py:55:101
+   |
+53 | …
+54 | …
+55 | …execute.return_value.fetchone.return_value = {'person_id': 1, 'lodestone_id': '456'}
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+56 | …', 'avg_ilvl': 700}
+57 | …
+   |
+
+Found 84 errors.
+No fixes available (5 hidden fixes can be enabled with the `--unsafe-fixes` option).

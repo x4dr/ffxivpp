@@ -4,7 +4,7 @@ import logging
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import requests as http
@@ -58,7 +58,7 @@ def fetch_character(lodestone_id: str) -> dict[str, Any]:
         if fetched_at:
             try:
                 ts = datetime.fromisoformat(fetched_at)
-                if datetime.now(timezone.utc) - ts < CACHE_TTL:
+                if datetime.now(UTC) - ts < CACHE_TTL:
                     return cached
             except ValueError:
                 pass

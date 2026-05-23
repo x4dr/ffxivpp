@@ -84,11 +84,11 @@ def check_access() -> bool:
     if not member:
         logger.info("check_access: Member lookup failed or user not in guild")
         return False
-    
+
     member_roles = set(member["roles"])
     allowed = get_role_ids(guild_id)
     logger.info("check_access: Member roles=%s, allowed_roles=%s", member_roles, allowed)
-    
+
     return bool(allowed and member_roles & allowed)
 
 
