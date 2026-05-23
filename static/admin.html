@@ -508,13 +508,13 @@ async function computeParties() {
     c.innerHTML = `<div class="empty-state"><p style="color:#4a9eff;">⏳ ${pct}% — found ${found.toLocaleString()} parties, explored ${explored.toLocaleString()} / ${d.total.toLocaleString()} combos${eta}</p></div>`;
   });
 
-  source.addEventListener('error', () => {
+  source.addEventListener('error', (e) => {
     source.close();
     btn.disabled = false;
     btn.textContent = 'Compute';
-    c.innerHTML = '<div class="empty-state"><p style="color:#e74c3c;">Stream error — no valid combos or server issue.</p></div>';
+    c.innerHTML = '<div class="empty-state"><p style="color:#e74c3c;">Compute stream error — server disconnected or no valid combinations found.</p></div>';
     showPollBar();
-    showStatus('Compute failed.', 'err');
+    showStatus('Compute failed: Server disconnected.', 'err');
   });
 
   source.addEventListener('complete', (e) => {
@@ -525,7 +525,7 @@ async function computeParties() {
 
     if (result.error) {
       c.innerHTML = `<div class="empty-state"><p style="color:#e74c3c;">Error: ${result.error}</p></div>`;
-      showStatus('Compute failed.', 'err');
+      showStatus('Compute failed: ' + result.error, 'err');
       return;
     }
 
@@ -740,10 +740,19 @@ async function fetchExclusions() {
   renderExclusions();
 }
 
+let statusTimeout;
 function showStatus(msg, type) {
   const el = document.getElementById('status');
+  clearTimeout(statusTimeout);
   el.textContent = msg;
   el.className = 'status ' + type;
+  el.style.opacity = '1';
+  el.style.display = 'block';
+
+  statusTimeout = setTimeout(() => {
+    el.style.opacity = '0';
+    setTimeout(() => { el.style.display = 'none'; }, 500); // Wait for transition
+  }, 10000);
 }
 
 fetchUser();

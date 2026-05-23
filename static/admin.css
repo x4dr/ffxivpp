@@ -142,7 +142,18 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; colo
 .combo-job.healer { background: #1a4a2a; color: #4ae88a; }
 .combo-job.dps { background: #4a1a1a; color: #ff6b6b; }
 .empty-state { text-align: center; padding: 40px 20px; color: #666688; }
-.status { padding: 8px 12px; border-radius: 6px; margin-top: 8px; display: none; }
+.status {
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: none;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  transition: opacity 0.5s ease;
+  max-width: 400px;
+}
 .status.ok { display: block; background: #1a3a2a; border: 1px solid #2ecc71; color: #4ae88a; }
 .status.err { display: block; background: #3a1a1a; border: 1px solid #e74c3c; color: #ff6b6b; }
 optgroup { color: #6060aa; font-style: normal; font-size: 0.8rem; }
