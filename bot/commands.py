@@ -444,37 +444,84 @@ async def admin_role_remove(interaction: discord.Interaction, role: discord.Role
 
 
 class PersistentPartyView(View):
+class RecheckButton(Button):
+    def __init__(self) -> None:
+        super().__init__(label="Recheck Lodestone", style=discord.ButtonStyle.secondary, custom_id="recheck_lodestone")
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        from app.db import get_lodestone_link, add_scraper_task, people_pool
+        
+        user_id = str(interaction.user.id)
+        person = next((p for p in people_pool() if p.get("discord_id") == user_id), None)
+        
+        if not person:
+            await interaction.response.send_message("You are not registered in the bot.", ephemeral=True)
+            return
+            
+        link = get_lodestone_link(person['id'])
+        if not link:
+            await interaction.response.send_message("No Lodestone account linked.", ephemeral=True)
+            return
+            
+        add_scraper_task(link['lodestone_id'], priority=1)
+        await interaction.response.send_message("Recheck task added to queue.", ephemeral=True)
+
+
+class PersistentPartyView(View):
     def __init__(self) -> None:
         super().__init__(timeout=None)
         self.add_item(Button(label="Join", style=discord.ButtonStyle.success, custom_id="party_join"))
         self.add_item(Button(label="Leave", style=discord.ButtonStyle.danger, custom_id="party_leave"))
+        self.add_item(RecheckButton())
         self.add_item(Button(label="Dashboard", style=discord.ButtonStyle.link, url=os.environ.get("BASE_URL", "http://localhost:5000")))
 
     async def update_embed(self, channel: discord.TextChannel, message: discord.Message) -> None:
-        from app.db import get_party_members
+        from app.db import get_party_members, get_cached_character, constraints_from_db
         
         # We need the party name. Can we extract it from the existing embed?
         party_name = message.embeds[0].title.replace("Party: ", "")
         
         members = get_party_members(party_name)
+        constraints = constraints_from_db(party_name)
+        target_ilvl = constraints.get("min_gear_level", 0)
         
         lines = []
         for m in members:
+            # Fetch cached character data
+            char_data = None
+            if m['lodestone_id']:
+                char_data = get_cached_character(m['lodestone_id'])
+            
             line = f"**{m['name']}**"
+            
             if not m['jobs']:
-                line += " — ⚠️ Missing Jobs"
+                line += " — Missing Jobs"
             
             if not m['lodestone_id']:
-                line += " — ⚠️ Missing Lodestone"
+                line += " — Missing Lodestone"
             else:
-                fetched_at = m['fetched_at']
-                if not fetched_at:
-                    line += " — ⚠️ No Data"
+                if not char_data:
+                    line += " — [no data]"
                 else:
-                    ts = datetime.fromisoformat(fetched_at)
-                    if datetime.now(timezone.utc) - ts > timedelta(days=7):
-                        line += " — ⚠️ Outdated Data"
+                    fetched_at = datetime.fromisoformat(char_data['fetched_at'])
+                    now = datetime.now(timezone.utc)
+                    days_old = (now - fetched_at).days
+                    
+                    # Assuming char_data['avg_ilvl'] exists, based on setlodestone command
+                    current_ilvl = char_data.get("avg_ilvl", 0)
+                    
+                    is_low_gear = target_ilvl > 0 and current_ilvl < target_ilvl
+                    
+                    if days_old > 3 and is_low_gear:
+                        line += f" — Outdated ({days_old} days)"
+                    elif days_old <= 3 and is_low_gear:
+                        line += f" — Low Gear (Current: {current_ilvl} / Target: {target_ilvl})"
+                    else:
+                        # What if it's outdated but not low gear?
+                        # The instructions didn't specify. I will just leave it as is if it doesn't meet conditions.
+                        pass
             lines.append(line)
+
         
         embed = discord.Embed(title=f"Party: {party_name}", 
                               description="\n".join(lines) if lines else "No members.", 
