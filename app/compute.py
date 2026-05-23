@@ -104,8 +104,14 @@ def compute_parties_stream(
     people: list[Person], constraints: Constraints,
 ) -> Generator[_SSEEvent, None, None]:
     results: list[list[Assignment]] = []
-    last_report = time.monotonic()
+    t0 = time.monotonic()
+    last_report = t0
     explored = 0
+    total_space = 1
+    for p in people:
+        valid_jobs = sum(1 for e in p.jobs if JOBS_BY_ID.get(parse_job_id(e)))
+        if valid_jobs:
+            total_space *= valid_jobs
 
     def valid(assignments: list[Job]) -> bool:
         c = constraints
@@ -144,7 +150,15 @@ def compute_parties_stream(
         explored += 1
         now = time.monotonic()
         if now - last_report >= 1.0:
-            yield ("progress", {"found": len(results), "explored": explored})
+            elapsed = now - t0
+            remaining = None
+            if explored > 0:
+                rate = explored / elapsed
+                remaining = int((total_space - explored) / rate)
+            yield ("progress", {
+                "found": len(results), "explored": explored,
+                "total": total_space, "remaining": remaining,
+            })
             last_report = now
         if idx == len(people):
             if valid(assigned):

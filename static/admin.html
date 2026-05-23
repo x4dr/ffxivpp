@@ -388,7 +388,13 @@ async function computeParties() {
     const d = JSON.parse(e.data);
     found = d.found;
     explored = d.explored;
-    c.innerHTML = `<div class="empty-state"><p style="color:#4a9eff;">⏳ Found ${found.toLocaleString()} parties, explored ${explored.toLocaleString()} combinations…</p></div>`;
+    const pct = d.total ? Math.round(explored / d.total * 100) : 0;
+    let eta = '';
+    if (d.remaining !== null && d.remaining > 0) {
+      const s = d.remaining;
+      eta = s >= 60 ? ` ETA ${Math.ceil(s / 60)}m` : ` ETA ${s}s`;
+    }
+    c.innerHTML = `<div class="empty-state"><p style="color:#4a9eff;">⏳ ${pct}% — found ${found.toLocaleString()} parties, explored ${explored.toLocaleString()} / ${d.total.toLocaleString()} combos${eta}</p></div>`;
   });
 
   source.addEventListener('complete', (e) => {
