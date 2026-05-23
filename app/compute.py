@@ -40,6 +40,42 @@ def get_priority(entry: str) -> int:
     return int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 5
 
 
+def analyze_constraints(people: list[Person], constraints: Constraints) -> list[str]:
+    reasons = []
+    c = constraints
+    
+    # 1. Total people check
+    if len(people) < 8:
+        reasons.append(f"Not enough people: have {len(people)}, need 8")
+        return reasons # Stop here, can't form a party
+        
+    # 2. Check available jobs
+    all_possible_jobs = set()
+    for p in people:
+        for entry in p.jobs:
+            job = JOBS_BY_ID.get(parse_job_id(entry))
+            if job:
+                all_possible_jobs.add(job.id)
+                
+    # 3. Role availability
+    available_tanks = sum(1 for j in JOBS if j.id in all_possible_jobs and j.role == 'tank')
+    available_healers = sum(1 for j in JOBS if j.id in all_possible_jobs and j.role == 'healer')
+    available_dps = sum(1 for j in JOBS if j.id in all_possible_jobs and j.role == 'dps')
+    
+    if c.std_comp:
+        if available_tanks < 2: reasons.append("Not enough tanks possible (need 2)")
+        if available_healers < 2: reasons.append("Not enough healers possible (need 2)")
+        if available_dps < 4: reasons.append("Not enough DPS possible (need 4)")
+
+    # 4. Check specific role/sub-role pools
+    def get_count(role, sub=None, dps_type=None):
+        return sum(1 for j in JOBS if j.role == role and (not sub or j.sub == sub) and (not dps_type or j.dps_type == dps_type))
+        
+    if c.min_melee > get_count('dps', sub='melee'): reasons.append("Too many melee required")
+        
+    return reasons
+
+
 def compute_parties(people: list[Person], constraints: Constraints) -> list[list[Assignment]]:
     results: list[list[Assignment]] = []
 
@@ -74,24 +110,40 @@ def compute_parties(people: list[Person], constraints: Constraints) -> list[list
             and c.min_utility <= n_utility <= c.max_utility
         )
 
-    def dfs(idx: int, assigned: list[Job]) -> None:
+    def dfs(idx: int, assigned: list[tuple[Person, Job]]) -> None:
+        # If we have reached a party size of 8, check if valid
+        if len(assigned) == 8:
+            jobs_only = [job for p, job in assigned]
+            if valid(jobs_only):
+                results.append([Assignment(p.name, j.name, j.role) for p, j in assigned])
+            # We don't return here because we want to find all valid parties of 8
+            # BUT we have to be careful: if we already have 8, we can't assign more.
+            # So if we have 8, we actually *should* return to avoid adding more people.
+            return
+
+        # If we ran out of people, stop
         if idx == len(people):
-            if valid(assigned):
-                results.append([
-                    Assignment(name=people[i].name, job=j.name, role=j.role)
-                    for i, j in enumerate(assigned)
-                ])
             return
-        p = people[idx]
-        if not p.jobs:
-            return
-        for entry in p.jobs:
-            job = JOBS_BY_ID.get(parse_job_id(entry))
-            if job is None:
-                continue
-            assigned.append(job)
+
+        # Remaining people:
+        remaining_people = len(people) - idx
+        # Remaining needed:
+        needed = 8 - len(assigned)
+        
+        # Option 1: Bench this person (if we have enough people left)
+        if remaining_people > needed:
             dfs(idx + 1, assigned)
-            assigned.pop()
+
+        # Option 2: Assign this person (if we still need more)
+        if needed > 0:
+            p = people[idx]
+            for entry in p.jobs:
+                job = JOBS_BY_ID.get(parse_job_id(entry))
+                if job is None:
+                    continue
+                assigned.append((p, job))
+                dfs(idx + 1, assigned)
+                assigned.pop()
 
     dfs(0, [])
     return results
@@ -145,7 +197,7 @@ def compute_parties_stream(
         )
 
     # mypy: ignore the generator type — nested recursive generator
-    def dfs(idx: int, assigned: list[Job]) -> Generator:  # type: ignore[misc]
+    def dfs(idx: int, assigned: list[tuple[Person, Job]]) -> Generator:  # type: ignore[misc]
         nonlocal explored, last_report
         explored += 1
         now = time.monotonic()
@@ -160,30 +212,43 @@ def compute_parties_stream(
                 "total": total_space, "remaining": remaining,
             })
             last_report = now
-        if idx == len(people):
-            if valid(assigned):
+            
+        if len(assigned) == 8:
+            jobs_only = [job for p, job in assigned]
+            if valid(jobs_only):
                 score = 0
                 members: list[dict[str, str]] = []
-                for i, j in enumerate(assigned):
+                for p, j in assigned:
                     prio = 5
-                    for entry in people[i].jobs:
+                    for entry in p.jobs:
                         if parse_job_id(entry) == j.id:
                             prio = get_priority(entry)
                             break
                     score += prio
-                    members.append({"name": people[i].name, "job": j.name, "role": j.role})
+                    members.append({"name": p.name, "job": j.name, "role": j.role})
                 results.append({"score": score, "members": members})
             return
-        p = people[idx]
-        if not p.jobs:
+            
+        if idx == len(people):
             return
-        for entry in p.jobs:
-            job = JOBS_BY_ID.get(parse_job_id(entry))
-            if job is None:
-                continue
-            assigned.append(job)
+
+        remaining_people = len(people) - idx
+        needed = 8 - len(assigned)
+        
+        # Option 1: Bench
+        if remaining_people > needed:
             yield from dfs(idx + 1, assigned)
-            assigned.pop()
+
+        # Option 2: Assign
+        if needed > 0:
+            p = people[idx]
+            for entry in p.jobs:
+                job = JOBS_BY_ID.get(parse_job_id(entry))
+                if job is None:
+                    continue
+                assigned.append((p, job))
+                yield from dfs(idx + 1, assigned)
+                assigned.pop()
 
     yield from dfs(0, [])
     results.sort(key=lambda r: r["score"], reverse=True)

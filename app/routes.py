@@ -17,7 +17,7 @@ from flask import (
 )
 
 from app.auth import get_discord, require_admin
-from app.compute import JOBS, compute_parties, compute_parties_stream
+from app.compute import JOBS, JOBS_BY_ID, compute_parties, compute_parties_stream
 from app.db import (
     active_party_name,
     add_person_to_party,
@@ -109,21 +109,6 @@ def api_exclusions() -> Response:
     return jsonify({"ok": True})
 
 
-@bp.route("/api/compute", methods=["POST"])
-def api_compute() -> Response:
-    raw = people_from_db()
-    if not raw:
-        return make_response(jsonify({"error": "no people configured"}), 400)
-    people = [Person(p["name"], p["jobs"]) for p in raw]
-    constraints = Constraints.from_dict(constraints_from_db())
-    parties = compute_parties(people, constraints)
-    return jsonify({
-        "count": len(parties),
-        "parties": [
-            [{"name": a.name, "job": a.job, "role": a.role} for a in party]
-            for party in parties[:2000]
-        ],
-    })
 
 
 @bp.route("/api/compute/stream")
@@ -134,12 +119,34 @@ def api_compute_stream() -> Response:
             yield "event: complete\ndata: " + json.dumps({"found": 0, "parties": []}) + "\n\n"
         return Response(stream_with_context(_noop()), mimetype="text/event-stream")
 
+    # Validate jobs strictly
+    errors = []
+    for p in raw:
+        for entry in p.get("jobs", []):
+            if not entry: continue
+            jid = entry.split(":")[0].lower()
+            if jid not in JOBS_BY_ID:
+                errors.append(f"Illegal job '{jid}' for {p['name']}")
+    
+    if errors:
+        def _error() -> Generator[str, None, None]:
+            yield "event: complete\ndata: " + json.dumps({"error": ". ".join(errors)}) + "\n\n"
+        return Response(stream_with_context(_error()), mimetype="text/event-stream")
+
     people = [Person(p["name"], p["jobs"]) for p in raw]
     constraints = Constraints.from_dict(constraints_from_db())
 
     def _generate() -> Generator[str, None, None]:
+        # Check constraints first
+        from app.compute import analyze_constraints
+        debug_reasons = analyze_constraints(people, constraints)
+        
+        found_any = False
         for event_type, data in compute_parties_stream(people, constraints):
+            if event_type == 'complete' and data.get('found', 0) == 0 and debug_reasons:
+                data['error'] = "No valid combinations found. Possible issues: " + "; ".join(debug_reasons)
             yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+            found_any = True
 
     return Response(stream_with_context(_generate()), mimetype="text/event-stream")
 

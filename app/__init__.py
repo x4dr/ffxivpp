@@ -12,7 +12,7 @@ load_dotenv()
 
 
 def create_app() -> Flask:
-    app = Flask(__name__)
+    app = Flask(__name__, static_folder="../static")
     sk = os.environ.get("FLASK_SECRET_KEY")
     if not sk:
         raise RuntimeError("FLASK_SECRET_KEY must be set in .env")
