@@ -4,86 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FF14 Party Planner — Admin</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
-  .container { max-width: 1300px; margin: 0 auto; }
-  .header { display: flex; align-items: center; justify-content: space-between; background: #16213e; border: 1px solid #2a2a5a; border-radius: 12px; padding: 10px 16px; margin-bottom: 16px; }
-  .header-left { display: flex; align-items: center; gap: 10px; }
-  .header-left h1 { color: #f0c040; font-size: 1.1rem; }
-  .header-right { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
-  .header-right img { border-radius: 50%; width: 28px; height: 28px; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-  .card { background: #16213e; border: 1px solid #2a2a5a; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-  .card-title { color: #b0b0d0; font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
-  .person-editor { background: #1a1a3e; border: 1px solid #2a2a5a; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
-  .person-editor .p-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
-  .person-editor input { background: #12122e; color: #e0e0e0; border: 1px solid #3a3a6a; border-radius: 4px; padding: 4px 8px; font-size: 0.9rem; }
-  .person-editor input.p-name { width: 140px; }
-  .job-chip { display: inline-flex; align-items: center; gap: 4px; background: #1a1a4e; border: 1px solid #3a3a6a; border-radius: 4px; padding: 2px 8px; font-size: 0.8rem; }
-  .job-chip .job-name { font-weight: 600; }
-  .job-chip select { background: #12122e; color: #e0e0e0; border: 1px solid #3a3a6a; border-radius: 3px; font-size: 0.75rem; padding: 1px 2px; width: 36px; }
-  .job-chip .rm-job { cursor: pointer; color: #e74c3c; font-weight: bold; margin-left: 2px; }
-  .job-chip .rm-job:hover { color: #ff6b6b; }
-  .p-actions { display: flex; align-items: center; gap: 6px; }
-  .p-actions select { background: #12122e; color: #e0e0e0; border: 1px solid #3a3a6a; border-radius: 4px; padding: 3px 6px; font-size: 0.8rem; }
-  .constraint-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 1px solid #222250; }
-  .constraint-row:last-child { border-bottom: none; }
-  .constraint-row label { flex: 1; cursor: pointer; font-size: 0.88rem; }
-  .constraint-row input[type="checkbox"] { width: 17px; height: 17px; accent-color: #4a9eff; cursor: pointer; }
-  .constraint-row select { background: #1a1a3e; color: #e0e0e0; border: 1px solid #3a3a6a; border-radius: 4px; padding: 3px 6px; font-size: 0.85rem; }
-  .section-title { font-size: 0.78rem; color: #6060aa; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 8px; }
-  .btn-group { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-  .btn { padding: 8px 20px; border: none; border-radius: 8px; font-size: 0.9rem; cursor: pointer; font-weight: 600; }
-  .btn-primary { background: #4a9eff; color: #fff; }
-  .btn-primary:hover { background: #3a8eef; }
-  .btn-secondary { background: #2a2a5a; color: #a0a0c0; }
-  .btn-secondary:hover { background: #3a3a6a; }
-  .btn-success { background: #2ecc71; color: #fff; }
-  .btn-success:hover { background: #27ae60; }
-  .btn-danger { background: #e74c3c; color: #fff; }
-  .btn-danger:hover { background: #c0392b; }
-  .btn-sm { padding: 4px 14px; font-size: 0.8rem; }
-  .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .results-count { font-size: 0.85rem; color: #8888aa; }
-  .combinations-list { max-height: 600px; overflow-y: auto; }
-  .combo-card { background: #1a1a3e; border: 1px solid #2a2a5a; border-radius: 8px; padding: 8px 12px; margin-bottom: 5px; }
-  .combo-person { display: flex; align-items: center; gap: 6px; padding: 1px 0; font-size: 0.82rem; }
-  .combo-person .pname { color: #8888aa; min-width: 65px; font-size: 0.75rem; }
-  .combo-job { padding: 1px 6px; border-radius: 3px; font-size: 0.75rem; font-weight: 500; }
-  .combo-job.tank { background: #1a3a6a; color: #6ab0ff; }
-  .combo-job.healer { background: #1a4a2a; color: #4ae88a; }
-  .combo-job.dps { background: #4a1a1a; color: #ff6b6b; }
-  .empty-state { text-align: center; padding: 40px 20px; color: #666688; }
-  .status { padding: 8px 12px; border-radius: 6px; margin-top: 8px; display: none; }
-  .status.ok { display: block; background: #1a3a2a; border: 1px solid #2ecc71; color: #4ae88a; }
-  .status.err { display: block; background: #3a1a1a; border: 1px solid #e74c3c; color: #ff6b6b; }
-  optgroup { color: #6060aa; font-style: normal; font-size: 0.8rem; }
-  .combo-card { cursor:pointer; user-select:none; }
-  .combo-card .compact { display:flex; align-items:center; gap:8px; padding:4px 0; }
-  .combo-card .compact .score { font-size:0.85rem; font-weight:700; color:#f0c040; min-width:36px; }
-  .combo-card .compact .jobs { display:flex; gap:4px; flex-wrap:wrap; flex:1; }
-  .combo-card .compact .job-chip2 { display:inline-flex; align-items:center; justify-content:center; min-width:48px; height:22px; border-radius:4px; font-size:0.7rem; font-weight:600; padding:0 6px; }
-  .combo-card .compact .job-chip2.tank { background:#1a3a6a; color:#6ab0ff; }
-  .combo-card .compact .job-chip2.healer { background:#1a4a2a; color:#4ae88a; }
-  .combo-card .compact .job-chip2.dps { background:#4a1a1a; color:#ff6b6b; }
-  .combo-card .expanded { display:none; margin-top:6px; padding-top:6px; border-top:1px solid #2a2a5a; }
-  .combo-card.open .expanded { display:flex; flex-wrap:wrap; gap:6px; }
-  .combo-card .expanded .slot { display:inline-flex; align-items:center; gap:6px; background:#1a1a4e; border:1px solid #2a2a5a; border-radius:6px; padding:4px 10px; font-size:0.8rem; }
-  .combo-card .expanded .slot .ename { color:#b0b0d0; font-size:0.8rem; }
-  .combo-card .expanded .slot .ejob { font-weight:600; }
-  .combo-card .expanded .slot .ejob.tank { color:#6ab0ff; }
-  .combo-card .expanded .slot .ejob.healer { color:#4ae88a; }
-  .combo-card .expanded .slot .ejob.dps { color:#ff6b6b; }
-  .poll-bar { display:flex; align-items:center; gap:10px; margin-top:10px; padding:10px 0; border-top:1px solid #2a2a5a; }
-  .poll-bar select { background:#12122e; color:#e0e0e0; border:1px solid #3a3a6a; border-radius:4px; padding:6px 10px; font-size:0.85rem; flex:1; }
-  .combo-card .ck { display:flex; align-items:center; justify-content:center; width:30px; height:30px; cursor:pointer; margin-left:-6px; }
-  .combo-card .ck input { width:18px; height:18px; accent-color:#4a9eff; cursor:pointer; }
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-track { background: #1a1a2e; }
-  ::-webkit-scrollbar-thumb { background: #3a3a6a; border-radius: 3px; }
-</style>
+<link rel="stylesheet" href="/static/admin.css">
 </head>
 <body>
 <div class="container">
@@ -220,7 +141,7 @@
       <div class="card">
         <div class="card-title">Results</div>
         <div style="text-align:right;margin-bottom:8px;">
-          <button class="btn btn-success" onclick="saveAndCompute()" id="compute-btn">Compute</button>
+          <button class="btn btn-secondary" onclick="computeParties()" id="compute-btn" disabled>Compute</button>
         </div>
         <div id="results"><div class="empty-state"><p>Add some people, set constraints, compute.</p></div></div>
         <div class="poll-bar" id="poll-bar" style="display:none;">
@@ -242,6 +163,7 @@ const JOBS_BY_ID = {
   vpr:{name:'VPR',role:'dps',sub:'melee',dt:'selfish'},brd:{name:'BRD',role:'dps',sub:'pranged',dt:'utility'},mch:{name:'MCH',role:'dps',sub:'pranged',dt:'selfish'},dnc:{name:'DNC',role:'dps',sub:'pranged',dt:'utility'},
   blm:{name:'BLM',role:'dps',sub:'caster',dt:'selfish'},smn:{name:'SMN',role:'dps',sub:'caster',dt:'utility'},rdm:{name:'RDM',role:'dps',sub:'caster',dt:'utility'},pct:{name:'PCT',role:'dps',sub:'caster',dt:'selfish'}
 };
+const NAME_TO_ID = Object.fromEntries(Object.entries(JOBS_BY_ID).map(([id, info]) => [info.name, id]));
 const JOBS = Object.entries(JOBS_BY_ID).map(([id, info]) => ({id, ...info}));
 const ROLES = [
   {key:'tank', label:'Tank'}, {key:'healer', label:'Healer'},
@@ -264,7 +186,9 @@ function jobToString(j) { return j.priority === 5 ? j.id : `${j.id}:${j.priority
 
 function jobChip(j, pi) {
   const info = JOBS_BY_ID[j.id];
-  return `<span class="job-chip"><span class="job-name" style="color:${roleColor(info ? info.sub : '')}">${info ? info.name : j.id.toUpperCase()}</span>
+  return `<span class="job-chip">
+    <img src="/static/icons/${j.id}.png">
+    <span class="job-name" style="color:${roleColor(info ? info.sub : '')}">${info ? info.name : j.id.toUpperCase()}</span>
     <select onchange="setPrio(${pi},'${j.id}',this.value)">${[1,2,3,4,5,6,7,8,9,10].map(n => `<option value="${n}"${n===j.priority?' selected':''}>${n}</option>`).join('')}</select>
     <span class="rm-job" onclick="removeJob(${pi},'${j.id}')">✕</span></span>`;
 }
@@ -290,6 +214,10 @@ function roleOptGroup(key, label) {
   </optgroup>`;
 }
 
+function togglePerson(el) {
+  el.classList.toggle('open');
+}
+
 function renderPeople() {
   const c = document.getElementById('people-editor');
   if (!people.length) { c.innerHTML = '<div class="empty-state"><p>No people yet. Add someone below.</p></div>'; return; }
@@ -298,17 +226,36 @@ function renderPeople() {
     const discord = isDiscordUser(p);
     const nameField = discord
       ? `<span class="p-name" style="font-weight:600;color:#f0c040;">${p.name} <span style="font-size:0.7rem;color:#5865F2;">⬡ Discord</span></span>`
-      : `<input class="p-name" value="${p.name}" placeholder="Name" onchange="people[${i}].name=this.value;savePeople()">`;
-    return `<div class="person-editor">
-      <div class="p-row">
+      : `<input class="p-name" value="${p.name}" placeholder="Name" onchange="people[${i}].name=this.value;savePeople()" onclick="event.stopPropagation()">`;
+    
+    const categories = { tank: [], healer: [], melee: [], pranged: [], caster: [] };
+    jobs.forEach(j => {
+      const info = JOBS_BY_ID[j.id];
+      const cat = info.role === 'tank' ? 'tank' : (info.role === 'healer' ? 'healer' : info.sub);
+      if (categories[cat]) categories[cat].push(j);
+    });
+
+    return `<div class="person-card">
+      <button class="remove-btn" onclick="removePerson(${i})">✕</button>
+      <div class="summary" onclick="togglePerson(this.parentElement)">
         ${nameField}
-        <div>${jobs.map(j => jobChip(j, i)).join(' ')}</div>
-        <div class="p-actions">
+        <div class="job-summary">
+          ${jobs.map(j => `<img src="/static/icons/${j.id}.png" style="width:20px;height:20px;border-radius:4px;" title="${j.id.toUpperCase()}">`).join('')}
+        </div>
+      </div>
+      <div class="expanded">
+        <div class="job-blocks">
+          <div class="job-block"><div class="job-block-title">Tank</div>${categories.tank.map(j => jobChip(j, i)).join('')}</div>
+          <div class="job-block"><div class="job-block-title">Healer</div>${categories.healer.map(j => jobChip(j, i)).join('')}</div>
+          <div class="job-block"><div class="job-block-title">Melee</div>${categories.melee.map(j => jobChip(j, i)).join('')}</div>
+          <div class="job-block"><div class="job-block-title">Phys Ranged</div>${categories.pranged.map(j => jobChip(j, i)).join('')}</div>
+          <div class="job-block"><div class="job-block-title">Caster</div>${categories.caster.map(j => jobChip(j, i)).join('')}</div>
+        </div>
+        <div class="p-actions" style="margin-top:10px;">
           <select onchange="addJob(${i}, this.value); this.value=''">
             <option value="">+ Add job</option>
             ${ROLES.map(r => roleOptGroup(r.key, r.label)).join('')}
           </select>
-          <button class="btn btn-sm btn-danger" onclick="removePerson(${i})">✕</button>
         </div>
       </div>
     </div>`;
@@ -382,7 +329,7 @@ async function savePeople() {
   const r = await fetch('/api/people', {
     method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
   });
-  if (r.ok) { showStatus('People saved!', 'ok'); fetchPeople(); }
+  if (r.ok) { fetchPeople(); setComputeButtonState(true); }
   else showStatus('Failed to save people', 'err');
 }
 
@@ -414,31 +361,81 @@ function saveConstraints() {
     fetch('/api/constraints', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)}),
     fetch('/api/exclusions', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(exclusions)}),
   ]).then(([r1, r2]) => {
-    showStatus(r1.ok && r2.ok ? 'Constraints saved.' : 'Failed.', r1.ok && r2.ok ? 'ok' : 'err');
+    if (!(r1.ok && r2.ok)) showStatus('Failed to save constraints.', 'err');
+    else setComputeButtonState(true);
   });
 }
 
-function saveAndCompute() {
-  const data = {};
-  for (const el of document.querySelectorAll('[data-id]')) {
-    data[el.getAttribute('data-id')] = el.type === 'checkbox' ? el.checked : parseInt(el.value);
+function setComputeButtonState(enabled) {
+  const btn = document.getElementById('compute-btn');
+  if (enabled) {
+    btn.classList.remove('btn-secondary');
+    btn.classList.add('btn-success');
+    btn.disabled = false;
+  } else {
+    btn.classList.remove('btn-success');
+    btn.classList.add('btn-secondary');
+    btn.disabled = true;
   }
-  const p1 = fetch('/api/constraints', {
-    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
-  });
-  const p2 = fetch('/api/exclusions', {
-    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(exclusions)
-  });
-  Promise.all([p1, p2]).then(([r1, r2]) => {
-    if (r1.ok && r2.ok) { showStatus('Saved. Computing…', 'ok'); computeParties(); }
-    else showStatus('Failed.', 'err');
-  });
+}
+
+function getSimilarity(p1, p2) {
+  let sim = 0;
+  const jobs1 = p1.members.map(m => m.job);
+  const jobs2 = p2.members.map(m => m.job);
+  for (const j of jobs1) {
+    if (jobs2.includes(j)) sim++;
+  }
+  return sim;
+}
+
+function reorderPartiesByDiversity(parties) {
+  const groups = {};
+  for (const p of parties) {
+    if (!groups[p.score]) groups[p.score] = [];
+    groups[p.score].push(p);
+  }
+  const reordered = [];
+  const sortedScores = Object.keys(groups).map(Number).sort((a, b) => b - a);
+  
+  for (const score of sortedScores) {
+    const group = groups[score];
+    if (group.length <= 1) {
+      reordered.push(...group);
+      continue;
+    }
+    
+    // Sort initially by randomness to not always pick the same one
+    group.sort(() => Math.random() - 0.5);
+    
+    const selected = [group[0]];
+    const remaining = group.slice(1);
+    
+    while (remaining.length > 0) {
+      let bestIdx = 0;
+      let minSimilarity = Infinity;
+      
+      for (let i = 0; i < remaining.length; i++) {
+        let totalSimilarity = 0;
+        for (const s of selected) {
+          totalSimilarity += getSimilarity(remaining[i], s);
+        }
+        if (totalSimilarity < minSimilarity) {
+          minSimilarity = totalSimilarity;
+          bestIdx = i;
+        }
+      }
+      selected.push(remaining.splice(bestIdx, 1)[0]);
+    }
+    reordered.push(...selected);
+  }
+  return reordered;
 }
 
 async function computeParties() {
   const btn = document.getElementById('compute-btn');
   const c = document.getElementById('results');
-  btn.disabled = true;
+  setComputeButtonState(false);
   btn.textContent = 'Computing…';
   c.innerHTML = '<div class="empty-state"><p style="color:#4a9eff;">⏳ Computing…</p></div>';
 
@@ -473,15 +470,24 @@ async function computeParties() {
     btn.disabled = false;
     btn.textContent = 'Compute';
 
-    lastParties = result.parties || [];
+    if (result.error) {
+      c.innerHTML = `<div class="empty-state"><p style="color:#e74c3c;">Error: ${result.error}</p></div>`;
+      showStatus('Compute failed.', 'err');
+      return;
+    }
+
+    lastParties = reorderPartiesByDiversity(result.parties || []);
     const total = result.found;
     const limit = lastParties.length;
-    if (!total) { c.innerHTML = '<div class="empty-state"><p>No valid combinations.</p></div>'; showPollBar(); return; }
+    if (!total && !result.error) { c.innerHTML = '<div class="empty-state"><p>No valid combinations.</p></div>'; showPollBar(); return; }
 
-    const totalStr = total > limit ? `Showing first ${limit} of ${total.toLocaleString()}` : `${total.toLocaleString()} total`;
+    let countText = `${total.toLocaleString()} combinations`;
+    if (total > limit) {
+      countText = `Showing first ${limit.toLocaleString()} of ${total.toLocaleString()} combinations`;
+    }
 
     let h = `<div class="results-header">
-      <span class="results-count">${total.toLocaleString()} combinations (${totalStr})</span>
+      <span class="results-count">${countText}</span>
       <button class="btn btn-sm btn-primary" onclick="exportTxt()">Export TXT</button>
     </div><div class="combinations-list">`;
 
@@ -497,13 +503,13 @@ async function computeParties() {
           <label class="ck" onclick="event.stopPropagation()"><input type="checkbox" data-idx="${i}" onchange="updateSelected()"></label>
           <span class="score">${party.score}</span>
           <div class="jobs">
-            ${tanks.map(m => `<span class="job-chip2 tank">${m.job}</span>`).join('')}
-            ${healers.map(m => `<span class="job-chip2 healer">${m.job}</span>`).join('')}
-            ${dps.map(m => `<span class="job-chip2 dps">${m.job}</span>`).join('')}
+            ${tanks.map(m => `<span class="job-chip2 tank"><img src="/static/icons/${NAME_TO_ID[m.job]}.png">${m.job}</span>`).join('')}
+            ${healers.map(m => `<span class="job-chip2 healer"><img src="/static/icons/${NAME_TO_ID[m.job]}.png">${m.job}</span>`).join('')}
+            ${dps.map(m => `<span class="job-chip2 dps"><img src="/static/icons/${NAME_TO_ID[m.job]}.png">${m.job}</span>`).join('')}
           </div>
         </div>
         <div class="expanded">
-          ${members.map(m => `<div class="slot"><span class="ename">${m.name}</span> <span class="ejob ${m.role}">${m.job}</span></div>`).join('')}
+          ${members.map(m => `<div class="slot"><img src="/static/icons/${NAME_TO_ID[m.job]}.png"><span class="ename">${m.name}</span> <span class="ejob ${m.role}">${m.job}</span></div>`).join('')}
         </div>
       </div>`;
     }
@@ -611,6 +617,7 @@ async function addPoolPerson() {
   });
   sel.value = '';
   await fetchPeople();
+  setComputeButtonState(true);
   filterPool();
 }
 
@@ -693,6 +700,7 @@ fetchConstraints();
 fetchExclusions();
 fetchChannels();
 fetchPool();
+computeParties();
 </script>
 </body>
 </html>
