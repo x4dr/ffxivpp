@@ -76,36 +76,39 @@ def api_jobs() -> Response:
 
 
 @bp.route("/api/people", methods=["GET", "POST"])
-def api_people() -> Response:
+@require_party_member
+def api_people(party_name: str) -> Response:
     if request.method == "GET":
-        return jsonify(people_from_db())
+        return jsonify(people_from_db(party_name))
     if not check_access():
         return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
-    if not isinstance(data, list):
+    # Support both old list format and new object format
+    people_data = data.get("people", data) if isinstance(data, dict) else data
+    if not isinstance(people_data, list):
         return make_response(jsonify({"error": "expected array of {name, jobs}"}), 400)
-    people_to_db(data)
+    people_to_db(people_data, party_name)
     return jsonify({"ok": True})
 
 
 @bp.route("/api/constraints", methods=["GET", "PUT"])
-def api_constraints() -> Response:
+@require_party_member
+def api_constraints(party_name: str) -> Response:
     if request.method == "GET":
-        return jsonify(constraints_from_db())
+        return jsonify(constraints_from_db(party_name))
     if not check_access():
         return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     if not isinstance(data, dict):
         return make_response(jsonify({"error": "expected object"}), 400)
-    constraints_to_db(data)
+    constraints_to_db(data, party_name)
     return jsonify({"ok": True})
 
 
 @bp.route("/api/exclusions", methods=["GET", "PUT"])
-def api_exclusions() -> Response:
+@require_party_member
+def api_exclusions(party_name: str) -> Response:
     from app.db import get_db
-
-    party_name = active_party_name()
     if request.method == "GET":
         rows = get_db().execute(
             "SELECT rowid, jobs FROM party_exclusions WHERE party_name = ? ORDER BY rowid",
@@ -115,11 +118,12 @@ def api_exclusions() -> Response:
     if not check_access():
         return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
-    if not isinstance(data, list):
+    exclusions_data = data.get("exclusions", data) if isinstance(data, dict) else data
+    if not isinstance(exclusions_data, list):
         return make_response(jsonify({"error": "expected array"}), 400)
     db = get_db()
     db.execute("DELETE FROM party_exclusions WHERE party_name = ?", (party_name,))
-    for group in data:
+    for group in exclusions_data:
         if isinstance(group, list) and group:
             db.execute("INSERT INTO party_exclusions (party_name, jobs) VALUES (?, ?)", (party_name, ",".join(group)))
     db.commit()
@@ -129,8 +133,9 @@ def api_exclusions() -> Response:
 
 
 @bp.route("/api/compute/stream")
-def api_compute_stream() -> Response:
-    raw = people_from_db()
+@require_party_member
+def api_compute_stream(party_name: str) -> Response:
+    raw = people_from_db(party_name)
     if not raw:
         def _noop() -> Generator[str, None, None]:
             yield "event: complete\ndata: " + json.dumps({"found": 0, "parties": []}) + "\n\n"
@@ -151,7 +156,7 @@ def api_compute_stream() -> Response:
         return Response(stream_with_context(_error()), mimetype="text/event-stream")
 
     people = [Person(p["name"], p["jobs"]) for p in raw]
-    constraints = Constraints.from_dict(constraints_from_db())
+    constraints = Constraints.from_dict(constraints_from_db(party_name))
 
     def _generate() -> Generator[str, None, None]:
         # Check constraints first
@@ -238,26 +243,28 @@ def api_people_pool() -> Response:
 
 
 @bp.route("/api/people-pool/add", methods=["POST"])
-def api_people_pool_add() -> Response:
+@require_party_member
+def api_people_pool_add(party_name: str) -> Response:
     if not check_access():
         return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     name = data.get("name", "").strip()
     if not name:
         return make_response(jsonify({"error": "name required"}), 400)
-    add_person_to_party(name)
+    add_person_to_party(name, party_name)
     return jsonify({"ok": True})
 
 
 @bp.route("/api/people-pool/remove", methods=["POST"])
-def api_people_pool_remove() -> Response:
+@require_party_member
+def api_people_pool_remove(party_name: str) -> Response:
     if not check_access():
         return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     name = data.get("name", "").strip()
     if not name:
         return make_response(jsonify({"error": "name required"}), 400)
-    remove_person_from_party(name)
+    remove_person_from_party(name, party_name)
     return jsonify({"ok": True})
 
 

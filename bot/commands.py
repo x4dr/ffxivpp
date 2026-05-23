@@ -590,8 +590,8 @@ class PersistentPartyView(View):
         base = os.environ.get("BASE_URL")
         if not base:
             raise RuntimeError("BASE_URL environment variable is not set.")
-        # Dashboard is a SPA; we link to the root dashboard
-        return f"{base.rstrip('/')}/dashboard"
+        # Dashboard is a SPA; we link to the party dashboard
+        return f"{base.rstrip('/')}/party/{party_name}"
 
     async def update_embed(self, channel: discord.TextChannel, message: discord.Message) -> None:
         from app.db import constraints_from_db, get_cached_character, get_party_members

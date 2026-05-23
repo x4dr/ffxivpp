@@ -119,13 +119,17 @@ def check_party_access(party_name: str) -> bool:
 def require_party_member(f: Callable[..., Response]) -> Callable[..., Response]:
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Response:
-        party_name = kwargs.get("party_name")
+        # Check kwargs (from route path), then query args, then JSON body
+        party_name = kwargs.get("party_name") or request.args.get("party_name") or (request.get_json(silent=True) or {}).get("party_name")
+        
         discord = get_discord()
         if not discord.authorized:
             return redirect(url_for("auth.login"))  # type: ignore[return-value]
         if not party_name or not check_party_access(party_name):
             return make_response("Not authorized", 403)
-        return f(*args, **kwargs)
+            
+        # Pass party_name to the function if it expects it
+        return f(party_name=party_name, *args, **kwargs)
 
     return decorated
 

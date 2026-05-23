@@ -258,9 +258,7 @@ def switch_party(name: str) -> None:
 # ── People (per-party) ───────────────────────────────────────────────────
 
 
-def people_from_db(party_name: str | None = None) -> list[dict[str, Any]]:
-    if party_name is None:
-        party_name = active_party_name()
+def people_from_db(party_name: str) -> list[dict[str, Any]]:
     with db_connection() as db:
         rows = db.execute(
             """SELECT p.id, p.name, p.jobs, p.discord_id, l.lodestone_id FROM people p
@@ -296,9 +294,7 @@ def people_pool() -> list[dict[str, Any]]:
         ]
 
 
-def people_to_db(data: list[dict[str, Any]], party_name: str | None = None) -> None:
-    if party_name is None:
-        party_name = active_party_name()
+def people_to_db(data: list[dict[str, Any]], party_name: str) -> None:
     with db_connection() as db:
         db.execute("DELETE FROM party_people WHERE party_name = ?", (party_name,))
         for entry in data:
@@ -332,9 +328,7 @@ def pool_save(data: list[dict[str, Any]]) -> None:
         db.commit()
 
 
-def add_person_to_party(person_name: str, party_name: str | None = None) -> None:
-    if party_name is None:
-        party_name = active_party_name()
+def add_person_to_party(person_name: str, party_name: str) -> None:
     with db_connection() as db:
         db.execute(
             "INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES (?, ?)",
@@ -343,9 +337,7 @@ def add_person_to_party(person_name: str, party_name: str | None = None) -> None
         db.commit()
 
 
-def remove_person_from_party(person_name: str, party_name: str | None = None) -> None:
-    if party_name is None:
-        party_name = active_party_name()
+def remove_person_from_party(person_name: str, party_name: str) -> None:
     with db_connection() as db:
         db.execute("DELETE FROM party_people WHERE party_name = ? AND person_name = ?", (party_name, person_name))
         db.commit()
@@ -404,9 +396,7 @@ def get_parties_for_lodestone_id(lodestone_id: str) -> list[dict[str, Any]]:
 # ── Constraints (per-party) ──────────────────────────────────────────────
 
 
-def constraints_from_db(party_name: str | None = None) -> dict[str, Any]:
-    if party_name is None:
-        party_name = active_party_name()
+def constraints_from_db(party_name: str) -> dict[str, Any]:
     with db_connection() as db:
         rows = db.execute(
             "SELECT key, value FROM party_constraints WHERE party_name = ?", (party_name,)
@@ -430,9 +420,7 @@ def constraints_from_db(party_name: str | None = None) -> dict[str, Any]:
         return out
 
 
-def constraints_to_db(data: dict[str, Any], party_name: str | None = None) -> None:
-    if party_name is None:
-        party_name = active_party_name()
+def constraints_to_db(data: dict[str, Any], party_name: str) -> None:
     with db_connection() as db:
         db.execute("DELETE FROM party_constraints WHERE party_name = ?", (party_name,))
         for k, v in data.items():

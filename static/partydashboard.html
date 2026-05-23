@@ -370,7 +370,7 @@ function setPrio(pi, jid, val) {
 }
 
 async function fetchPeople() {
-  const r = await fetch('/api/people');
+  const r = await fetch('/api/people?party_name=' + encodeURIComponent(activeParty));
   people = await r.json();
   people.forEach(p => { 
     if (!p.activeNameType) p.activeNameType = 'discord'; 
@@ -386,7 +386,7 @@ async function savePeople() {
     discord_id: p.discord_id || null
   })).filter(p => p.name);
   const r = await fetch('/api/people', {
-    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({people: data, party_name: activeParty})
   });
   if (r.ok) { fetchPeople(); setComputeButtonState(true); }
   else showStatus('Failed to save people', 'err');
@@ -417,7 +417,7 @@ async function fetchUser() {
 }
 
 async function fetchConstraints() {
-  const r = await fetch('/api/constraints');
+  const r = await fetch('/api/constraints?party_name=' + encodeURIComponent(activeParty));
   const data = await r.json();
   for (const [k, v] of Object.entries(data)) {
     const el = document.getElementById('c_' + k);
@@ -433,8 +433,8 @@ function saveConstraints() {
     data[el.getAttribute('data-id')] = el.type === 'checkbox' ? el.checked : parseInt(el.value);
   }
   Promise.all([
-    fetch('/api/constraints', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)}),
-    fetch('/api/exclusions', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(exclusions)}),
+    fetch('/api/constraints', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({...data, party_name: activeParty})}),
+    fetch('/api/exclusions', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({exclusions: exclusions, party_name: activeParty})}),
   ]).then(([r1, r2]) => {
     if (!(r1.ok && r2.ok)) showStatus('Failed to save constraints.', 'err');
     else setComputeButtonState(true);
@@ -704,7 +704,7 @@ async function addPoolPerson() {
   if (!sel.value) return;
   const name = sel.value;
   await fetch('/api/people-pool/add', {
-    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name})
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: name, party_name: activeParty})
   });
   sel.value = '';
   await fetchPeople();
@@ -780,7 +780,7 @@ function removeExclusion(i) {
 }
 
 async function fetchExclusions() {
-  const r = await fetch('/api/exclusions');
+  const r = await fetch('/api/exclusions?party_name=' + encodeURIComponent(activeParty));
   exclusions = await r.json();
   renderExclusions();
 }
