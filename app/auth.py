@@ -39,7 +39,7 @@ def _bot_token() -> str | None:
     return os.environ.get("DISCORD_BOT_TOKEN")
 
 
-def _bot_api(method: str, path: str) -> dict[str, Any] | None:
+def _bot_api(method: str, path: str, json: dict[str, Any] | None = None) -> dict[str, Any] | None:
     token = _bot_token()
     if not token:
         return None
@@ -47,6 +47,7 @@ def _bot_api(method: str, path: str) -> dict[str, Any] | None:
         method,
         f"https://discord.com/api/v10{path}",
         headers={"Authorization": f"Bot {token}"},
+        json=json,
         timeout=10,
     )
     return r.json() if r.status_code == 200 else None

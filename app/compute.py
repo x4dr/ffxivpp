@@ -162,10 +162,17 @@ def compute_parties_stream(
             last_report = now
         if idx == len(people):
             if valid(assigned):
-                results.append([
-                    Assignment(name=people[i].name, job=j.name, role=j.role)
-                    for i, j in enumerate(assigned)
-                ])
+                score = 0
+                members: list[dict[str, str]] = []
+                for i, j in enumerate(assigned):
+                    prio = 5
+                    for entry in people[i].jobs:
+                        if parse_job_id(entry) == j.id:
+                            prio = get_priority(entry)
+                            break
+                    score += prio
+                    members.append({"name": people[i].name, "job": j.name, "role": j.role})
+                results.append({"score": score, "members": members})
             return
         p = people[idx]
         if not p.jobs:
@@ -179,10 +186,8 @@ def compute_parties_stream(
             assigned.pop()
 
     yield from dfs(0, [])
+    results.sort(key=lambda r: r["score"], reverse=True)
     yield ("complete", {
         "found": len(results),
-        "parties": [
-            [{"name": a.name, "job": a.job, "role": a.role} for a in party]
-            for party in results[:2000]
-        ],
+        "parties": results[:2000],
     })

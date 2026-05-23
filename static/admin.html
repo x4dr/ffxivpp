@@ -60,6 +60,25 @@
   .status.ok { display: block; background: #1a3a2a; border: 1px solid #2ecc71; color: #4ae88a; }
   .status.err { display: block; background: #3a1a1a; border: 1px solid #e74c3c; color: #ff6b6b; }
   optgroup { color: #6060aa; font-style: normal; font-size: 0.8rem; }
+  .combo-card { cursor:pointer; user-select:none; }
+  .combo-card .compact { display:flex; align-items:center; gap:8px; padding:4px 0; }
+  .combo-card .compact .score { font-size:0.85rem; font-weight:700; color:#f0c040; min-width:36px; }
+  .combo-card .compact .jobs { display:flex; gap:4px; flex-wrap:wrap; flex:1; }
+  .combo-card .compact .job-chip2 { display:inline-flex; align-items:center; justify-content:center; min-width:48px; height:22px; border-radius:4px; font-size:0.7rem; font-weight:600; padding:0 6px; }
+  .combo-card .compact .job-chip2.tank { background:#1a3a6a; color:#6ab0ff; }
+  .combo-card .compact .job-chip2.healer { background:#1a4a2a; color:#4ae88a; }
+  .combo-card .compact .job-chip2.dps { background:#4a1a1a; color:#ff6b6b; }
+  .combo-card .expanded { display:none; margin-top:6px; padding-top:6px; border-top:1px solid #2a2a5a; }
+  .combo-card.open .expanded { display:block; }
+  .combo-card .expanded .slot { display:flex; align-items:center; gap:8px; padding:2px 0; font-size:0.82rem; }
+  .combo-card .expanded .slot .ename { color:#8888aa; min-width:70px; font-size:0.75rem; }
+  .combo-card .expanded .slot .ejob { padding:2px 8px; border-radius:3px; font-size:0.75rem; }
+  .combo-card .expanded .slot .ejob.tank { background:#1a3a6a; color:#6ab0ff; }
+  .combo-card .expanded .slot .ejob.healer { background:#1a4a2a; color:#4ae88a; }
+  .combo-card .expanded .slot .ejob.dps { background:#4a1a1a; color:#ff6b6b; }
+  .poll-bar { display:flex; align-items:center; gap:10px; margin-top:10px; padding:10px 0; border-top:1px solid #2a2a5a; }
+  .poll-bar select { background:#12122e; color:#e0e0e0; border:1px solid #3a3a6a; border-radius:4px; padding:6px 10px; font-size:0.85rem; flex:1; }
+  .combo-card input[type=checkbox] { width:16px; height:16px; accent-color:#4a9eff; cursor:pointer; }
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: #1a1a2e; }
   ::-webkit-scrollbar-thumb { background: #3a3a6a; border-radius: 3px; }
@@ -184,6 +203,11 @@
           <button class="btn btn-success" onclick="saveAndCompute()" id="compute-btn">Compute</button>
         </div>
         <div id="results"><div class="empty-state"><p>Add some people, set constraints, compute.</p></div></div>
+        <div class="poll-bar" id="poll-bar" style="display:none;">
+          <span style="font-size:0.85rem;color:#888;" id="selected-count">0 selected</span>
+          <select id="channel-select"><option value="">— Select channel —</option></select>
+          <button class="btn btn-sm btn-primary" onclick="postPoll()" id="post-poll-btn" disabled>Post Poll</button>
+        </div>
       </div>
     </div>
   </div>
@@ -402,9 +426,10 @@ async function computeParties() {
     btn.disabled = false;
     btn.textContent = 'Compute';
 
+    lastParties = result.parties || [];
     const total = result.found;
-    const limit = result.parties ? result.parties.length : 0;
-    if (!total) { c.innerHTML = '<div class="empty-state"><p>No valid combinations.</p></div>'; return; }
+    const limit = lastParties.length;
+    if (!total) { c.innerHTML = '<div class="empty-state"><p>No valid combinations.</p></div>'; showPollBar(); return; }
 
     const totalStr = total > limit ? `Showing first ${limit} of ${total.toLocaleString()}` : `${total.toLocaleString()} total`;
 
@@ -414,29 +439,54 @@ async function computeParties() {
     </div><div class="combinations-list">`;
 
     for (let i = 0; i < limit; i++) {
-      const party = result.parties[i];
-      h += `<div class="combo-card">
-        <div style="font-size:0.65rem;color:#666;margin-bottom:2px;">Party ${i + 1}</div>`;
-      for (const p of party) {
-        h += `<div class="combo-person">
-          <span class="pname">${p.name}</span>
-          <span class="combo-job ${p.role}">${p.job}</span>
-        </div>`;
-      }
-      h += `</div>`;
+      const party = lastParties[i];
+      const members = party.members;
+      const tanks = members.filter(m => m.role === 'tank');
+      const healers = members.filter(m => m.role === 'healer');
+      const dps = members.filter(m => m.role === 'dps');
+
+      h += `<div class="combo-card" onclick="toggleParty(this)">
+        <div class="compact">
+          <input type="checkbox" onclick="event.stopPropagation()" data-idx="${i}" onchange="updateSelected()">
+          <span class="score">${party.score}</span>
+          <div class="jobs">
+            ${tanks.map(m => `<span class="job-chip2 tank">${m.job}</span>`).join('')}
+            ${healers.map(m => `<span class="job-chip2 healer">${m.job}</span>`).join('')}
+            ${dps.map(m => `<span class="job-chip2 dps">${m.job}</span>`).join('')}
+          </div>
+        </div>
+        <div class="expanded">
+          ${members.map(m => `<div class="slot"><span class="ename">${m.name}</span><span class="ejob ${m.role}">${m.job}</span></div>`).join('')}
+        </div>
+      </div>`;
     }
     h += '</div>';
     c.innerHTML = h;
-    lastParties = result.parties;
+    showPollBar();
     showStatus(`Found ${total.toLocaleString()} valid party combinations.`, 'ok');
   });
 }
 
+function toggleParty(el) {
+  el.classList.toggle('open');
+}
+
+function updateSelected() {
+  const checked = document.querySelectorAll('#results input[type=checkbox]:checked').length;
+  document.getElementById('selected-count').textContent = `${checked} selected`;
+  document.getElementById('post-poll-btn').disabled = checked === 0;
+}
+
+function showPollBar() {
+  const bar = document.getElementById('poll-bar');
+  bar.style.display = lastParties && lastParties.length ? 'flex' : 'none';
+}
+
 function exportTxt() {
-  if (!lastParties.length) return;
+  if (!lastParties || !lastParties.length) return;
   const lines = lastParties.map((party, i) => {
-    const parts = party.map(p => `${p.name}:${p.job}`);
-    return `Party ${i + 1}: ${parts.join(', ')}`;
+    const parts = party.members.map(m => `${m.name}:${m.job}`);
+    return `Party ${i + 1} (score ${party.score}): ${parts.join(', ')}`;
   });
   const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
   const a = document.createElement('a');
@@ -444,6 +494,35 @@ function exportTxt() {
   a.download = 'ff14-parties.txt';
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+async function fetchChannels() {
+  const r = await fetch('/api/channels');
+  if (!r.ok) return;
+  const channels = await r.json();
+  const sel = document.getElementById('channel-select');
+  for (const ch of channels) {
+    const opt = document.createElement('option');
+    opt.value = ch.id;
+    opt.textContent = '#' + ch.name;
+    sel.appendChild(opt);
+  }
+}
+
+async function postPoll() {
+  const sel = document.getElementById('channel-select');
+  const channelId = sel.value;
+  if (!channelId) { showStatus('Select a channel first.', 'err'); return; }
+  const checked = [...document.querySelectorAll('#results input[type=checkbox]:checked')];
+  if (!checked.length) return;
+  const parties = checked.map(cb => lastParties[parseInt(cb.dataset.idx)]);
+  const r = await fetch('/api/polls', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({channel_id: channelId, parties}),
+  });
+  if (r.ok) { showStatus('Poll posted! ✅', 'ok'); }
+  else { showStatus('Failed to post poll.', 'err'); }
 }
 
 let exclusions = [];
@@ -493,6 +572,7 @@ fetchUser();
 fetchPeople();
 fetchConstraints();
 fetchExclusions();
+fetchChannels();
 </script>
 </body>
 </html>

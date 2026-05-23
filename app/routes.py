@@ -111,23 +111,56 @@ def api_compute() -> Response:
 REPO_DIR = Path(__file__).resolve().parent.parent
 
 
-@bp.route("/api/compute/stream")
-def api_compute_stream() -> Response:
-    raw = people_from_db()
-    if not raw:
-        return make_response(jsonify({"error": "no people configured"}), 400)
-    people = [Person(p["name"], p["jobs"]) for p in raw]
-    constraints = Constraints.from_dict(constraints_from_db())
+@bp.route("/api/channels")
+def api_channels() -> Response:
+    from app.auth import _bot_api, _guild_id
 
-    def generate() -> Generator:
-        for event, data in compute_parties_stream(people, constraints):
-            yield f"event: {event}\ndata: {json.dumps(data)}\n\n"
+    guild_id = _guild_id()
+    if not guild_id:
+        return make_response(jsonify({"error": "no guild configured"}), 400)
+    data = _bot_api("GET", f"/guilds/{guild_id}/channels")
+    if not data:
+        return make_response(jsonify({"error": "failed to fetch channels"}), 500)
+    channels = [
+        {"id": c["id"], "name": c["name"]}
+        for c in data if c.get("type") == 0
+    ]
+    return jsonify(channels)
 
-    return Response(
-        stream_with_context(generate()),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
-    )
+
+@bp.route("/api/polls", methods=["POST"])
+def api_polls() -> Response:
+    from app.auth import _bot_api
+
+    body = request.get_json(force=True)
+    channel_id = body.get("channel_id")
+    parties = body.get("parties", [])
+    if not channel_id or not parties:
+        return make_response(jsonify({"error": "channel_id and parties required"}), 400)
+    if len(parties) > 10:
+        return make_response(jsonify({"error": "max 10 parties per poll"}), 400)
+
+    answers = []
+    for i, party in enumerate(parties):
+        job_strs = [m["job"] for m in party["members"]]
+        answers.append({
+            "poll_media": {"text": f"Party {i + 1}: {' / '.join(job_strs)}"},
+        })
+
+    payload = {
+        "poll": {
+            "question": {"text": "Which party composition?"},
+            "answers": answers,
+            "duration": 24,
+            "allow_multiselect": False,
+            "layout_type": 1,
+        },
+    }
+
+    result = _bot_api("POST", f"/channels/{channel_id}/messages", payload)
+    if result:
+        return jsonify({"ok": True})
+    return make_response(jsonify({"error": "failed to post poll"}), 500)
 
 
 @bp.route("/webhook/deploy", methods=["POST"])
