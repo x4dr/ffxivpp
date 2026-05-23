@@ -7,7 +7,7 @@ Type=simple
 User=YOUR_USER
 Group=YOUR_USER
 WorkingDirectory=/path/to/ffxivpp
-ExecStart=/path/to/ffxivpp/.venv/bin/gunicorn app:app --bind 127.0.0.1:7111 --workers 2 --access-logfile /tmp/flask-access.log
+ExecStart=/path/to/ffxivpp/.venv/bin/gunicorn wsgi:app --bind 127.0.0.1:7111 --workers 2 --access-logfile /tmp/flask-access.log
 Restart=always
 RestartSec=5
 
