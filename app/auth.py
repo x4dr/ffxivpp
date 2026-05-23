@@ -1,13 +1,22 @@
 from __future__ import annotations
 
-import os
 import logging
+import os
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
 
 import requests
-from flask import Blueprint, Response, current_app, make_response, redirect, url_for, session
+from flask import (
+    Blueprint,
+    Response,
+    current_app,
+    make_response,
+    redirect,
+    request,
+    session,
+    url_for,
+)
 from flask_discord import DiscordOAuth2Session  # type: ignore[import-untyped]
 from oauthlib.oauth2 import MismatchingStateError
 
