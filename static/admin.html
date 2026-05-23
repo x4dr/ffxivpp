@@ -224,8 +224,12 @@ function renderPeople() {
   c.innerHTML = people.map((p, i) => {
     const jobs = p.jobs.map(e => parseJobEntry(e));
     const discord = isDiscordUser(p);
+    const isDiscordActive = p.activeNameType === 'discord';
+    const nameLabel = '';
+    const nameColor = isDiscordActive ? '#f0c040' : '#4a9eff';
+    
     const nameField = discord
-      ? `<span class="p-name" style="font-weight:600;color:#f0c040;">${p.name} <span style="font-size:0.7rem;color:#5865F2;">⬡ Discord</span></span>`
+      ? `<span class="p-name" style="font-weight:600;color:${nameColor};">${p.name}</span>`
       : `<input class="p-name" value="${p.name}" placeholder="Name" onchange="people[${i}].name=this.value;savePeople()" onclick="event.stopPropagation()">`;
     
     const categories = { tank: [], healer: [], melee: [], pranged: [], caster: [] };
@@ -242,6 +246,14 @@ function renderPeople() {
         <div class="job-summary">
           ${jobs.map(j => `<img src="/static/icons/${j.id}.png" style="width:20px;height:20px;border-radius:4px;" title="${j.id.toUpperCase()}">`).join('')}
         </div>
+        ${discord && p.has_lodestone ? `<div class="name-switcher" onclick="event.stopPropagation()">
+          <img src="/static/icons/discord.png" class="switcher-icon" title="Discord">
+          <label class="switch">
+            <input type="checkbox" ${!isDiscordActive ? 'checked' : ''} onchange="toggleName(${i}, this.checked)">
+            <span class="slider"></span>
+          </label>
+          <img src="/static/icons/lodestone.png" class="switcher-icon" title="Lodestone">
+        </div>` : ''}
       </div>
       <div class="expanded">
         <div class="job-blocks">
@@ -261,6 +273,43 @@ function renderPeople() {
     </div>`;
   }).join('');
 }
+
+async function toggleName(i, isLodestone) {
+  const p = people[i];
+  const type = isLodestone ? 'lodestone' : 'discord';
+  
+  if (type === 'discord') {
+    p.name = p.original_name || p.name;
+    p.activeNameType = 'discord';
+  } else {
+    // If we have lodestone name cached, switch immediately
+    if (p.lodestone_name) {
+      p.name = p.lodestone_name;
+      p.activeNameType = 'lodestone';
+    } else {
+      // Need to fetch. We use p.id now!
+      try {
+        const r = await fetch(`/api/lodestone/${p.id}`);
+        if (r.ok) {
+          const data = await r.json();
+          p.lodestone_name = data.character_name;
+          p.original_name = p.original_name || p.name; // Keep the original name
+          p.name = p.lodestone_name;
+          p.activeNameType = 'lodestone';
+        } else {
+          // Fetch failed
+          console.error("Failed to fetch lodestone data.");
+          return;
+        }
+      } catch (e) {
+        console.error("Error fetching lodestone data: " + e);
+        return;
+      }
+    }
+  }
+  renderPeople();
+}
+
 
 function addPerson() {
   people.push({name: '', jobs: []});
@@ -317,6 +366,10 @@ function setPrio(pi, jid, val) {
 async function fetchPeople() {
   const r = await fetch('/api/people');
   people = await r.json();
+  people.forEach(p => { 
+    if (!p.activeNameType) p.activeNameType = 'discord'; 
+    if (!p.original_name) p.original_name = p.name;
+  });
   renderPeople();
 }
 
@@ -604,7 +657,7 @@ function filterPool() {
   const filtered = poolPeople.filter(p => !inParty.has(p.name) && (!q || p.name.toLowerCase().includes(q)));
   const sel = document.getElementById('pool-select');
   sel.innerHTML = '<option value="">— Select —</option>' +
-    filtered.map(p => `<option value="${p.name}">${p.name}${p.discord_id ? ' ⬡' : ''}${p.jobs.length ? ` [${p.jobs.map(j => j.split(':')[0].toUpperCase()).join(',')}]` : ''}</option>`).join('');
+    filtered.map(p => `<option value="${p.name}">${p.name}${p.jobs.length ? ` [${p.jobs.map(j => j.split(':')[0].toUpperCase()).join(',')}]` : ''}</option>`).join('');
   sel.disabled = filtered.length === 0;
 }
 

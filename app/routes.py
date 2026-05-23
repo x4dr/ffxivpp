@@ -231,14 +231,20 @@ def api_people_pool_remove() -> Response:
     return jsonify({"ok": True})
 
 
-@bp.route("/api/lodestone/<discord_id>")
-def api_lodestone(discord_id: str) -> Response:
-    link = get_lodestone_link(discord_id)
+@bp.route("/api/lodestone/<person_id>")
+def api_lodestone(person_id: str) -> Response:
+    try:
+        pid = int(person_id)
+    except ValueError:
+        return make_response(jsonify({"error": "invalid person_id"}), 400)
+    
+    link = get_lodestone_link(pid)
     if not link:
         return make_response(jsonify({"error": "no lodestone link"}), 404)
     from app.lodestone import fetch_character
-
+    
     data = fetch_character(link["lodestone_id"])
+    data["character_name"] = link["character_name"]
     return jsonify(data)
 
 

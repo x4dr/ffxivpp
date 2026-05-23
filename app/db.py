@@ -3,10 +3,19 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+import time
+import logging
 from pathlib import Path
 from typing import Any, cast
 
 from flask import g, has_app_context
+
+# Configure basic logging for database duration tracking
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+# Track connection start times by connection ID
+_conn_start_times: dict[int, float] = {}
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -16,9 +25,15 @@ def _db_path() -> str:
 
 
 def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(_db_path())
+    conn = sqlite3.connect(_db_path(), timeout=3)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    # Set busy timeout to 3 seconds
+    conn.execute("PRAGMA busy_timeout = 3000")
+    
+    # Store start time in global dictionary using connection ID as key
+    _conn_start_times[id(conn)] = time.time()
+    logger.debug(f"Database connection opened: {id(conn)}")
     return conn
 
 
@@ -30,11 +45,22 @@ def get_db() -> sqlite3.Connection:
     return _connect()
 
 
-def close_db(_e: Any = None) -> None:
+def close_db(e: Any = None, conn: sqlite3.Connection | None = None) -> None:
+    if conn is not None:
+        start_time = _conn_start_times.pop(id(conn), time.time())
+        duration = time.time() - start_time
+        if duration > 1.0:
+            logger.warning(f"Database connection {id(conn)} held for {duration:.4f}s")
+        else:
+            logger.debug(f"Database connection {id(conn)} closed after {duration:.4f}s")
+        conn.close()
+        return
+
     if has_app_context():
         db = g.pop("db", None)
         if db is not None:
             db.close()
+            logger.debug("Flask DB connection closed")
 
 
 def _table_has_col(table: str, col: str) -> bool:
@@ -68,84 +94,32 @@ def init_db() -> None:
             role_id TEXT NOT NULL,
             PRIMARY KEY (guild_id, role_id)
         );
+        CREATE TABLE IF NOT EXISTS people (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            jobs TEXT NOT NULL DEFAULT '',
+            discord_id TEXT
+        );
         CREATE TABLE IF NOT EXISTS lodestone_links (
-            discord_id TEXT NOT NULL,
+            person_id INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
             lodestone_id TEXT NOT NULL,
             character_name TEXT,
             fetched_at TEXT,
-            PRIMARY KEY (discord_id, lodestone_id)
+            PRIMARY KEY (person_id, lodestone_id)
         );
         CREATE TABLE IF NOT EXISTS character_cache (
             lodestone_id TEXT PRIMARY KEY,
             data TEXT NOT NULL,
             fetched_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS party_people (
+            party_name TEXT NOT NULL REFERENCES parties(name) ON DELETE CASCADE,
+            person_name TEXT NOT NULL REFERENCES people(name) ON DELETE CASCADE,
+            PRIMARY KEY (party_name, person_name)
+        );
+        INSERT OR IGNORE INTO parties (name) VALUES ('Default');
+        INSERT OR IGNORE INTO app_state (key, value) VALUES ('active_party', 'Default');
     """)
-
-    needs_migrate = False
-    try:
-        needs_migrate = _table_has_col("people", "id")
-    except sqlite3.OperationalError:
-        pass
-
-    if needs_migrate:
-        old_rows = db.execute("SELECT name, jobs, discord_id FROM people ORDER BY id").fetchall()
-        seen: dict[str, dict[str, Any]] = {}
-        for r in old_rows:
-            seen[r["name"]] = {"jobs": r["jobs"] or "", "discord_id": r["discord_id"]}
-
-        db.executescript("""
-            CREATE TABLE IF NOT EXISTS people_new (
-                name TEXT PRIMARY KEY,
-                jobs TEXT NOT NULL DEFAULT '',
-                discord_id TEXT
-            );
-        """)
-        for name, data in seen.items():
-            db.execute(
-                "INSERT OR REPLACE INTO people_new (name, jobs, discord_id) VALUES (?, ?, ?)",
-                (name, data["jobs"], data["discord_id"]),
-            )
-        db.execute("DROP TABLE people")
-        db.execute("ALTER TABLE people_new RENAME TO people")
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS party_people (
-                party_name TEXT NOT NULL REFERENCES parties(name) ON DELETE CASCADE,
-                person_name TEXT NOT NULL REFERENCES people(name) ON DELETE CASCADE,
-                PRIMARY KEY (party_name, person_name)
-            )
-        """)
-        db.execute("INSERT OR IGNORE INTO parties (name) VALUES ('Default')")
-        for name in seen:
-            db.execute(
-                "INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES ('Default', ?)",
-                (name,),
-            )
-        for r in db.execute("SELECT id, value FROM constraint_config").fetchall():
-            db.execute(
-                "INSERT OR REPLACE INTO party_constraints (party_name, key, value) VALUES ('Default', ?, ?)",
-                (r["id"], r["value"]),
-            )
-        for r in db.execute("SELECT jobs FROM exclusions").fetchall():
-            db.execute(
-                "INSERT INTO party_exclusions (party_name, jobs) VALUES ('Default', ?)",
-                (r["jobs"],),
-            )
-        db.execute("INSERT OR REPLACE INTO app_state (key, value) VALUES ('active_party', 'Default')")
-    else:
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS party_people (
-                party_name TEXT NOT NULL REFERENCES parties(name) ON DELETE CASCADE,
-                person_name TEXT NOT NULL REFERENCES people(name) ON DELETE CASCADE,
-                PRIMARY KEY (party_name, person_name)
-            )
-        """)
-        try:
-            db.execute("CREATE TABLE IF NOT EXISTS people (name TEXT PRIMARY KEY, jobs TEXT NOT NULL DEFAULT '', discord_id TEXT)")
-        except sqlite3.OperationalError:
-            pass
-        db.execute("INSERT OR IGNORE INTO parties (name) VALUES ('Default')")
-        db.execute("INSERT OR IGNORE INTO app_state (key, value) VALUES ('active_party', 'Default')")
 
     default_cfg = [
         ("std_comp", "true"),
@@ -217,13 +191,22 @@ def people_from_db(party_name: str | None = None) -> list[dict[str, Any]]:
     if party_name is None:
         party_name = active_party_name()
     rows = get_db().execute(
-        """SELECT p.name, p.jobs, p.discord_id FROM people p
+        """SELECT p.name, p.jobs, p.discord_id, l.lodestone_id FROM people p
            JOIN party_people pp ON pp.person_name = p.name
+           LEFT JOIN lodestone_links l ON p.id = l.person_id
            WHERE pp.party_name = ?""",
         (party_name,),
     ).fetchall()
     return [
-        {"name": r["name"], "jobs": [j for j in (r["jobs"] or "").split(",") if j], "discord_id": r["discord_id"]}
+        {"name": r["name"], "jobs": [j for j in (r["jobs"] or "").split(",") if j], "discord_id": r["discord_id"], "has_lodestone": r["lodestone_id"] is not None}
+        for r in rows
+    ]
+
+
+def people_pool() -> list[dict[str, Any]]:
+    rows = get_db().execute("SELECT p.name, p.jobs, p.discord_id, l.lodestone_id FROM people p LEFT JOIN lodestone_links l ON p.id = l.person_id ORDER BY p.name").fetchall()
+    return [
+        {"name": r["name"], "jobs": [j for j in (r["jobs"] or "").split(",") if j], "discord_id": r["discord_id"], "has_lodestone": r["lodestone_id"] is not None}
         for r in rows
     ]
 
@@ -245,14 +228,6 @@ def people_to_db(data: list[dict[str, Any]], party_name: str | None = None) -> N
 
 
 # ── People pool (global) ─────────────────────────────────────────────────
-
-
-def people_pool() -> list[dict[str, Any]]:
-    rows = get_db().execute("SELECT name, jobs, discord_id FROM people ORDER BY name").fetchall()
-    return [
-        {"name": r["name"], "jobs": [j for j in (r["jobs"] or "").split(",") if j], "discord_id": r["discord_id"]}
-        for r in rows
-    ]
 
 
 def pool_save(data: list[dict[str, Any]]) -> None:
@@ -356,21 +331,37 @@ def bot_owner_id() -> str | None:
 # ── Lodestone ─────────────────────────────────────────────────────────────
 
 
-def set_lodestone_link(discord_id: str, lodestone_id: str, character_name: str | None = None) -> None:
+def set_lodestone_link(person_id: int, lodestone_id: str, character_name: str | None = None) -> None:
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc).isoformat()
-    get_db().execute(
-        "INSERT OR REPLACE INTO lodestone_links (discord_id, lodestone_id, character_name, fetched_at) VALUES (?, ?, ?, ?)",
-        (discord_id, lodestone_id, character_name, now),
+    db = get_db()
+    db.execute(
+        "INSERT INTO lodestone_links (person_id, lodestone_id, character_name, fetched_at) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(person_id, lodestone_id) DO UPDATE SET character_name = excluded.character_name",
+        (person_id, lodestone_id, character_name, now),
     )
-    get_db().commit()
+    db.commit()
+    close_db(db)
 
 
-def get_lodestone_link(discord_id: str) -> dict[str, Any] | None:
+def update_lodestone_fetched_at(lodestone_id: str) -> None:
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    db = get_db()
+    db.execute(
+        "UPDATE lodestone_links SET fetched_at = ? WHERE lodestone_id = ?",
+        (now, lodestone_id),
+    )
+    db.commit()
+    close_db(db)
+
+
+def get_lodestone_link(person_id: int) -> dict[str, Any] | None:
     row = get_db().execute(
-        "SELECT lodestone_id, character_name, fetched_at FROM lodestone_links WHERE discord_id = ?",
-        (discord_id,),
+        "SELECT lodestone_id, character_name, fetched_at FROM lodestone_links WHERE person_id = ?",
+        (person_id,),
     ).fetchone()
     if not row:
         return None
@@ -403,12 +394,14 @@ def get_cached_character(lodestone_id: str) -> dict[str, Any] | None:
 def get_character_data(person_name: str) -> dict[str, Any] | None:
     db = get_db()
     row = db.execute(
-        """SELECT l.lodestone_id, c.data FROM people p
-           JOIN lodestone_links l ON p.discord_id = l.discord_id
+        """SELECT l.lodestone_id, c.data, l.character_name FROM people p
+           JOIN lodestone_links l ON p.id = l.person_id
            JOIN character_cache c ON l.lodestone_id = c.lodestone_id
            WHERE p.name = ?""",
         (person_name,),
     ).fetchone()
     if not row:
         return None
-    return json.loads(row["data"])
+    data = json.loads(row["data"])
+    data["character_name"] = row["character_name"]
+    return data

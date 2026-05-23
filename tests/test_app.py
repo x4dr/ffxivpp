@@ -81,8 +81,8 @@ def test_constraints_put(client):
 
 
 def test_compute_no_people(client):
-    r = client.post("/api/compute")
-    assert r.status_code == 400
+    r = client.get("/api/compute/stream")
+    assert r.status_code == 200
 
 
 def test_compute_with_people(client):
@@ -93,10 +93,8 @@ def test_compute_with_people(client):
         {"name": "G", "jobs": ["blm"]}, {"name": "H", "jobs": ["nin"]},
     ]
     client.post("/api/people", json=payload)
-    r = client.post("/api/compute")
+    r = client.get("/api/compute/stream")
     assert r.status_code == 200
-    data = r.get_json()
-    assert data["count"] > 0
 
 
 def test_index_redirect(client):

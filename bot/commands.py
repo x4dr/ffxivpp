@@ -5,9 +5,14 @@
 
 from __future__ import annotations
 
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+
 import os
 import re
 import asyncio
+import sqlite3
+import random
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -73,23 +78,53 @@ class PartyBot(discord.Client):
         self.loop.create_task(self.scraper_loop())
 
     async def scraper_loop(self) -> None:
-        """Background loop to refresh character data."""
-        from app.db import get_db
+        """Background loop to refresh character data with optimized DB locking."""
+        from app.db import get_db, close_db, update_lodestone_fetched_at, set_lodestone_link
         from app.lodestone import fetch_character
+        import sqlite3
+        import random
 
         loop = asyncio.get_event_loop()
         await asyncio.sleep(10)
+        logging.info("Scraper loop started.")
+        
         while not self.is_closed():
             try:
-                row = get_db().execute(
-                    "SELECT lodestone_id FROM lodestone_links ORDER BY fetched_at ASC LIMIT 1"
+                # 1. READ: Get ID and close immediately
+                db = get_db()
+                row = db.execute(
+                    "SELECT person_id, lodestone_id FROM lodestone_links ORDER BY fetched_at ASC LIMIT 1"
                 ).fetchone()
-                if row:
-                    # Run blocking fetch in executor to avoid blocking bot loop
-                    await loop.run_in_executor(None, fetch_character, row["lodestone_id"])
+                person_id = row['person_id'] if row else None
+                lodestone_id = row['lodestone_id'] if row else None
+                close_db(db)
+                
+                if lodestone_id:
+                    logging.info(f"Scraping {lodestone_id}...")
+                    # 2. NETWORK IO: Run without holding any DB lock
+                    data = await loop.run_in_executor(None, fetch_character, lodestone_id)
+                    
+                    # 3. WRITE: Open only when needed
+                    if data and "name" in data:
+                        # Helper functions call get_db(). We need to close them.
+                        # This is inefficient, but will stop the leaks.
+                        update_lodestone_fetched_at(lodestone_id)
+                        set_lodestone_link(person_id, lodestone_id, data["name"])
+                        
+                    logging.info(f"Finished scraping {lodestone_id}.")
+            except sqlite3.OperationalError as e:
+
+                if "locked" in str(e).lower():
+                    wait = random.uniform(2, 10)
+                    logging.warning(f"Database locked, retrying in {wait:.2f}s...")
+                    await asyncio.sleep(wait)
+                    continue
+                else:
+                    logging.error(f"Database error: {e}")
             except Exception as e:
-                print(f"Scraper error: {e}")
+                logging.error(f"Scraper error: {e}")
             await asyncio.sleep(10)
+
 
 
     async def on_ready(self) -> None:
