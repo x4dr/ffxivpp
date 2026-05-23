@@ -23,6 +23,8 @@ from oauthlib.oauth2 import MismatchingStateError
 from app.db import bot_owner_id, get_role_ids
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
 
@@ -55,12 +57,14 @@ def _bot_api(method: str, path: str, json: dict[str, Any] | None = None) -> dict
 
 def check_access() -> bool:
     discord = get_discord()
+    print(f"DEBUG: check_access discord.authorized={discord.authorized}")
     if not discord.authorized:
         logger.info("check_access: Not authorized (no session)")
         return False
     user = discord.fetch_user()
     user_id = str(user.id)
     guild_id = _guild_id()
+    print(f"DEBUG: check_access user_id={user_id}, guild_id={guild_id}, bot_owner={bot_owner_id()}")
     logger.info("check_access: Checking user_id=%s, guild_id=%s", user_id, guild_id)
 
     if bot_owner_id() == user_id:
@@ -106,21 +110,38 @@ def require_admin(f: Callable[..., Response]) -> Callable[..., Response]:
 
 
 def check_party_access(party_name: str) -> bool:
-    if check_access():
+    print(f"DEBUG: check_party_access checking party={party_name}")
+    is_access = check_access()
+    print(f"DEBUG: check_access returned {is_access}")
+    if is_access:
         return True
     discord = get_discord()
+    print(f"DEBUG: discord.authorized={discord.authorized}")
     if not discord.authorized:
         return False
     user = discord.fetch_user()
     from app.db import check_party_member
-    return check_party_member(str(user.id), party_name)
+    is_member = check_party_member(str(user.id), party_name)
+    print(f"DEBUG: user={user.id}, is_member={is_member}")
+    return is_member
 
 
 def require_party_member(f: Callable[..., Response]) -> Callable[..., Response]:
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Response:
         # Check kwargs (from route path), then query args, then JSON body
-        party_name = kwargs.get("party_name") or request.args.get("party_name") or (request.get_json(silent=True) or {}).get("party_name")
+        party_name = kwargs.get("party_name") or request.args.get("party_name")
+        if not party_name:
+            data = request.get_json(silent=True)
+            if isinstance(data, dict):
+                party_name = data.get("party_name")
+        
+        # Fallback to active party from DB if not provided
+        if not party_name:
+            from app.db import active_party_name
+            party_name = active_party_name()
+        
+        logger.info("require_party_member: found party_name=%s", party_name)
         
         discord = get_discord()
         if not discord.authorized:
@@ -129,6 +150,8 @@ def require_party_member(f: Callable[..., Response]) -> Callable[..., Response]:
             return make_response("Not authorized", 403)
             
         # Pass party_name to the function if it expects it
+        if "party_name" in kwargs:
+            return f(*args, **kwargs)
         return f(party_name=party_name, *args, **kwargs)
 
     return decorated

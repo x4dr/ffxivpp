@@ -138,8 +138,15 @@ def check_party_member(discord_id: str, party_name: str) -> bool:
 def constraints_from_db(party_name: str) -> dict[str, Any]:
     try:
         constraints = Session.query(PartyConstraint).filter_by(party_name=party_name).all()
-        # Ensure values are converted to appropriate types for JSON
-        out = {}
+        out = {
+            "std_comp": True,
+            "no_dupes": True,
+            "min_selfish": 0,
+            "max_selfish": 4,
+            "min_utility": 0,
+            "max_utility": 4,
+            "heal_mix": False,
+        }
         for c in constraints:
             val = c.value
             if val == "True": val = True
@@ -288,6 +295,13 @@ def create_party(name: str) -> None:
     finally:
         Session.remove()
 
+def delete_party(name: str) -> None:
+    try:
+        Session.query(Party).filter_by(name=name).delete()
+        Session.commit()
+    finally:
+        Session.remove()
+
 def active_party_name() -> str:
     try:
         state = Session.query(AppState).filter_by(key='active_party').first()
@@ -308,6 +322,32 @@ def get_parties_details() -> list[dict[str, Any]]:
     try:
         parties = Session.query(Party).all()
         return [{"name": p.name, "home_channel_id": p.home_channel_id} for p in parties]
+    finally:
+        Session.remove()
+
+def update_party_home_channel(party_name: str, channel_id: str | None) -> None:
+    try:
+        party = Session.query(Party).filter_by(name=party_name).first()
+        if party:
+            party.home_channel_id = channel_id
+            Session.commit()
+    finally:
+        Session.remove()
+
+def get_party_exclusions(party_name: str) -> list[list[str]]:
+    try:
+        excl = Session.query(PartyExclusion).filter_by(party_name=party_name).all()
+        return [e.jobs.split(",") for e in excl]
+    finally:
+        Session.remove()
+
+def set_party_exclusions(party_name: str, exclusions: list[list[str]]) -> None:
+    try:
+        Session.query(PartyExclusion).filter_by(party_name=party_name).delete()
+        for group in exclusions:
+            if group:
+                Session.add(PartyExclusion(party_name=party_name, jobs=",".join(group)))
+        Session.commit()
     finally:
         Session.remove()
 

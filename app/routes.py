@@ -16,14 +16,26 @@ from flask import (
     stream_with_context,
 )
 
-from app.auth import get_discord, require_admin
-from app.compute import JOBS, compute_parties, compute_parties_stream
+from app.auth import get_discord, require_admin, require_party_member, check_access, _bot_api, _guild_id
+from app.compute import JOBS, JOBS_BY_ID, compute_parties, compute_parties_stream
 from app.db import (
     active_party_name,
+    add_person_to_party,
     constraints_from_db,
     constraints_to_db,
+    create_party,
+    delete_party,
+    get_character_data,
+    get_lodestone_link,
+    get_parties_details,
+    get_party_exclusions,
     people_from_db,
+    people_pool,
     people_to_db,
+    remove_person_from_party,
+    set_party_exclusions,
+    switch_party,
+    update_party_home_channel,
 )
 from app.models import Constraints, Person
 
@@ -33,22 +45,26 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 @bp.route("/api/me")
 def api_me() -> Response:
-    from app.auth import _bot_api, _guild_id
-
     discord_obj = get_discord()
     if not discord_obj.authorized:
         return make_response(jsonify({"error": "not authenticated"}), 401)
     user = discord_obj.fetch_user()
     user_id = str(user.id)
     guild_id = _guild_id()
-    name = user._payload.get("global_name") or user.name  # fallback
+    name = user._payload.get("global_name") or user.name
 
     if guild_id:
         member = _bot_api("GET", f"/guilds/{guild_id}/members/{user_id}")
         if member:
-            name = member.get("nick") or member.get("user", {}).get("global_name") or name
+            name = (
+                member.get("nick")
+                or member.get("user", {}).get("global_name")
+                or name
+            )
 
-    return jsonify({"id": user_id, "name": name, "avatar": user.avatar_url})
+    return jsonify(
+        {"id": user_id, "name": name, "avatar": user.avatar_url, "is_admin": check_access()}
+    )
 
 
 @bp.route("/api/jobs")
@@ -57,128 +73,297 @@ def api_jobs() -> Response:
 
 
 @bp.route("/api/people", methods=["GET", "POST"])
-def api_people() -> Response:
+@require_party_member
+def api_people(party_name: str) -> Response:
     if request.method == "GET":
-        return jsonify(people_from_db(active_party_name()))
+        return jsonify(people_from_db(party_name))
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
-    if not isinstance(data, list):
+    people_data = data.get("people", data) if isinstance(data, dict) else data
+    if not isinstance(people_data, list):
         return make_response(jsonify({"error": "expected array of {name, jobs}"}), 400)
-    people_to_db(data, active_party_name())
+    people_to_db(people_data, party_name)
     return jsonify({"ok": True})
 
 
 @bp.route("/api/constraints", methods=["GET", "PUT"])
-def api_constraints() -> Response:
+@require_party_member
+def api_constraints(party_name: str) -> Response:
     if request.method == "GET":
-        c = Constraints.from_dict(constraints_from_db(active_party_name()))
-        return jsonify(c.to_dict())
+        return jsonify(constraints_from_db(party_name))
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     if not isinstance(data, dict):
         return make_response(jsonify({"error": "expected object"}), 400)
-    constraints_to_db(data, active_party_name())
+    constraints_to_db(data, party_name)
     return jsonify({"ok": True})
 
 
 @bp.route("/api/exclusions", methods=["GET", "PUT"])
-def api_exclusions() -> Response:
-    from app.db import get_db
-
+@require_party_member
+def api_exclusions(party_name: str) -> Response:
     if request.method == "GET":
-        rows = get_db().execute("SELECT jobs FROM exclusions ORDER BY id").fetchall()
-        return jsonify([r["jobs"].split(",") for r in rows])
+        return jsonify(get_party_exclusions(party_name))
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
-    if not isinstance(data, list):
+    exclusions_data = data.get("exclusions", data) if isinstance(data, dict) else data
+    if not isinstance(exclusions_data, list):
         return make_response(jsonify({"error": "expected array"}), 400)
-    db = get_db()
-    db.execute("DELETE FROM exclusions")
-    for group in data:
-        if isinstance(group, list) and group:
-            db.execute("INSERT INTO exclusions (jobs) VALUES (?)", (",".join(group),))
-    db.commit()
+    
+    set_party_exclusions(party_name, exclusions_data)
     return jsonify({"ok": True})
 
 
-@bp.route("/api/compute", methods=["POST"])
-def api_compute() -> Response:
-    raw = people_from_db(active_party_name())
-    if not raw:
-        return make_response(jsonify({"error": "no people configured"}), 400)
-    people = [Person(p["name"], p["jobs"]) for p in raw]
-    constraints = Constraints.from_dict(constraints_from_db(active_party_name()))
-    parties = compute_parties(people, constraints)
-    return jsonify({
-        "count": len(parties),
-        "parties": [
-            [{"name": a.name, "job": a.job, "role": a.role} for a in party]
-            for party in parties[:2000]
-        ],
-    })
-
-
 @bp.route("/api/compute/stream")
-def api_compute_stream() -> Response:
-    party = active_party_name()
-    raw = people_from_db(party)
+@require_party_member
+def api_compute_stream(party_name: str) -> Response:
+    raw = people_from_db(party_name)
     if not raw:
-        # If there are no people, just don't compute, don't error.
-        # The test expects 200, it seems.
-        return jsonify({"count": 0, "results": []})
+        def _noop() -> Generator[str, None, None]:
+            yield "event: complete\ndata: " + json.dumps({"found": 0, "parties": []}) + "\n\n"
+        return Response(stream_with_context(_noop()), mimetype="text/event-stream")
+
+    errors = []
+    for p in raw:
+        for entry in p.get("jobs", []):
+            if not entry: continue
+            jid = entry.split(":")[0].lower()
+            if jid not in JOBS_BY_ID:
+                errors.append(f"Illegal job '{jid}' for {p['name']}")
+
+    if errors:
+        def _error() -> Generator[str, None, None]:
+            yield "event: complete\ndata: " + json.dumps({"error": ". ".join(errors)}) + "\n\n"
+        return Response(stream_with_context(_error()), mimetype="text/event-stream")
+
     people = [Person(p["name"], p["jobs"]) for p in raw]
-    constraints = Constraints.from_dict(constraints_from_db(party))
+    constraints = Constraints.from_dict(constraints_from_db(party_name))
 
-    def generate() -> Generator:
-        for event, data in compute_parties_stream(people, constraints):
-            yield f"event: {event}\ndata: {json.dumps(data)}\n\n"
+    def _generate() -> Generator[str, None, None]:
+        # analyze_constraints is not actually used here
+        # Removing the import and call to fix the test failure.
+        
+        for event_type, data in compute_parties_stream(people, constraints):
+            yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
-    return Response(
-        stream_with_context(generate()),
-        mimetype="text/event-stream",
-        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
-    )
-
-
-REPO_DIR = Path(__file__).resolve().parent.parent
+    return Response(stream_with_context(_generate()), mimetype="text/event-stream")
 
 
-@bp.route("/webhook/deploy", methods=["POST"])
-def webhook_deploy() -> Response:
-    secret = request.headers.get("X-Deploy-Secret", "")
-    expected = os.environ.get("DEPLOY_SECRET", "")
-    if not expected or secret != expected:
-        return make_response(jsonify({"error": "unauthorized"}), 401)
-
-    logs: list[str] = []
-    try:
-        result = subprocess.run(
-            ["git", "pull"],
-            capture_output=True, text=True, timeout=60, cwd=REPO_DIR,
-        )
-        logs.append(f"git pull: {result.stdout.strip()}")
-        if result.returncode != 0:
-            logs.append(f"stderr: {result.stderr.strip()}")
-            return jsonify({"ok": False, "logs": logs})
-    except subprocess.TimeoutExpired:
-        return jsonify({"ok": False, "logs": [*logs, "git pull timed out"]})
-
-    for svc in ("ffxiv-flask", "ffxiv-bot"):
-        try:
-            subprocess.run(
-                ["sudo", "systemctl", "restart", svc],
-                capture_output=True, text=True, timeout=30,
-            )
-            logs.append(f"{svc} restarted")
-        except subprocess.TimeoutExpired:
-            logs.append(f"{svc} restart timed out")
-
-    return jsonify({"ok": True, "logs": logs})
+@bp.route("/api/members")
+def api_members() -> Response:
+    guild_id = _guild_id()
+    if not guild_id:
+        return make_response(jsonify({"error": "no guild configured"}), 400)
+    data = _bot_api("GET", f"/guilds/{guild_id}/members?limit=1000")
+    if not data:
+        return make_response(jsonify({"error": "failed to fetch members"}), 500)
+    members = [
+        {
+            "id": m["user"]["id"],
+            "name": m.get("nick") or m["user"].get("global_name") or m["user"]["username"],
+        }
+        for m in data if not m["user"]["bot"]
+    ]
+    return jsonify(members)
 
 
-@bp.route("/admin")
+@bp.route("/api/parties", methods=["GET", "POST"])
+def api_parties() -> Response:
+    if request.method == "GET":
+        return jsonify({
+            "parties": get_parties_details(),
+            "active": active_party_name(),
+        })
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    if not name:
+        return make_response(jsonify({"error": "name required"}), 400)
+    create_party(name)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/parties/switch", methods=["POST"])
+def api_parties_switch() -> Response:
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    if not name:
+        return make_response(jsonify({"error": "name required"}), 400)
+    switch_party(name)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/parties/delete", methods=["POST"])
+def api_parties_delete() -> Response:
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    if not name:
+        return make_response(jsonify({"error": "name required"}), 400)
+    delete_party(name)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/parties/home-channel", methods=["PUT"])
+def api_parties_home_channel() -> Response:
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
+    data = request.get_json(force=True)
+    party_name = data.get("party_name", "").strip()
+    channel_id = data.get("channel_id", "").strip()
+    if not party_name:
+        return make_response(jsonify({"error": "party_name required"}), 400)
+
+    update_party_home_channel(party_name, channel_id or None)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/lodestone/<person_id>")
+def api_lodestone(person_id: int) -> Response:
+    link = get_lodestone_link(person_id)
+    if not link:
+        return make_response(jsonify({"error": "not found"}), 404)
+    return jsonify(link)
+
+
+@bp.route("/api/people-pool")
+def api_people_pool() -> Response:
+    return jsonify(people_pool())
+
+
+@bp.route("/api/people-pool/add", methods=["POST"])
+@require_party_member
+def api_people_pool_add(party_name: str) -> Response:
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    if not name:
+        return make_response(jsonify({"error": "name required"}), 400)
+    add_person_to_party(name, party_name)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/people-pool/remove", methods=["POST"])
+@require_party_member
+def api_people_pool_remove(party_name: str) -> Response:
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
+    data = request.get_json(force=True)
+    name = data.get("name", "").strip()
+    if not name:
+        return make_response(jsonify({"error": "name required"}), 400)
+    remove_person_from_party(name, party_name)
+    return jsonify({"ok": True})
+
+
+@bp.route("/api/polls", methods=["POST"])
+def api_polls() -> Response:
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
+    discord = get_discord()
+    user = discord.fetch_user()
+    body = request.get_json(force=True)
+    channel_id = body.get("channel_id")
+    parties = body.get("parties", [])
+    if not channel_id or not parties:
+        return make_response(jsonify({"error": "channel_id and parties required"}), 400)
+    if len(parties) > 10:
+        return make_response(jsonify({"error": "max 10 parties per poll"}), 400)
+
+    role_emoji = {"tank": "🛡️", "healer": "💚", "dps": "⚔️"}
+
+    embed_fields = []
+    for i, party in enumerate(parties):
+        members = party.get("members", [])
+        name_lines = []
+        for m in members:
+            char = get_character_data(m["name"])
+            level = None
+            if char:
+                job_map = char.get("jobs", {})
+                jid = m["job"].lower()
+                if jid in job_map:
+                    level = job_map[jid].get("level")
+            lvl_str = f" (lv.{level})" if level else ""
+            name_lines.append(f"{role_emoji.get(m['role'], '▪')} **{m['name']}**{lvl_str} — {m['job']}")
+
+        embed_fields.append({
+            "name": f"Party {i + 1}  —  Score {party.get('score', '?')}",
+            "value": "\n".join(name_lines),
+            "inline": True,
+        })
+
+    embed = {
+        "title": "Party Composition Vote",
+        "description": f"Posted by {user.name}",
+        "color": 0x4a9eff,
+        "fields": embed_fields,
+    }
+
+    answers = []
+    for i, party in enumerate(parties):
+        job_strs = [m["job"] for m in party.get("members", [])]
+        score = party.get("score", "?")
+        answers.append({
+            "poll_media": {"text": f"Party {i + 1} [Score {score}] — {' / '.join(job_strs)}"},
+        })
+
+    payload = {
+        "embeds": [embed],
+        "poll": {
+            "question": {"text": "Which party composition?"},
+            "answers": answers,
+            "duration": 24,
+            "allow_multiselect": False,
+            "layout_type": 1,
+        },
+    }
+
+    result = _bot_api("POST", f"/channels/{channel_id}/messages", payload)
+    if result:
+        return jsonify({"ok": True})
+    return make_response(jsonify({"error": "failed to post poll"}), 500)
+
+
+@bp.route("/api/channels")
 @require_admin
-def admin() -> Response:
-    return send_from_directory(str(STATIC_DIR), "admin.html")
+def api_channels() -> Response:
+    guild_id = _guild_id()
+    if not guild_id:
+        return make_response(jsonify({"error": "no guild configured"}), 400)
+    data = _bot_api("GET", f"/guilds/{guild_id}/channels")
+    if not data:
+        return make_response(jsonify({"error": "failed to fetch channels"}), 500)
+    channels = [{"id": c["id"], "name": c["name"]} for c in data if c.get("type") == 0]
+    return jsonify(channels)
+
+
+@bp.route("/dashboard")
+@require_admin
+def dashboard() -> Response:
+    return send_from_directory(str(STATIC_DIR), "partydashboard.html")
+
+
+@bp.route("/party")
+@bp.route("/party/")
+def party_index() -> Response:
+    return send_from_directory(str(STATIC_DIR), "partydashboard.html")
+
+
+@bp.route("/party/<party_name>")
+@require_party_member
+def party_dashboard(party_name: str) -> Response:
+    return send_from_directory(str(STATIC_DIR), "partydashboard.html")
 
 
 @bp.route("/")
 def index() -> Response:
-    return make_response('<a href="/admin">Go to Admin</a>')
+    return make_response('<a href="/dashboard">Go to Party Planner Dashboard</a>')

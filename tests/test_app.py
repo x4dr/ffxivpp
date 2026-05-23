@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -12,15 +13,26 @@ from app import create_app
 def client():
     db_fd, db_path = tempfile.mkstemp(suffix=".db")
     os.environ["DATABASE_PATH"] = db_path
-    app = create_app()
-    app.config["TESTING"] = True
-    with app.test_client() as c:
-        with app.app_context():
-            from app.db import Base, Session, engine, init_db
-            Base.metadata.drop_all(engine)
-            init_db()
-            yield c
-            Session.remove()
+    
+    # Mock discord authorized state and check_party_access
+    # Patch directly in app.auth since that's where the routes import them from.
+    with patch("app.auth.get_discord") as mock_auth_get_discord, \
+         patch("app.auth.check_party_access", return_value=True), \
+         patch("app.auth.check_access", return_value=True):
+        
+        mock_auth_get_discord.return_value.authorized = True
+        
+        app = create_app()
+        app.config["TESTING"] = True
+        
+        with app.test_client() as c:
+            with app.app_context():
+                from app.db import Base, Session, engine, init_db
+                Base.metadata.drop_all(engine)
+                init_db()
+                yield c
+                Session.remove()
+    
     os.close(db_fd)
     os.unlink(db_path)
     del os.environ["DATABASE_PATH"]
@@ -61,6 +73,7 @@ def test_people_post_invalid(client):
 
 def test_constraints_defaults(client):
     r = client.get("/api/constraints")
+    assert r.status_code == 200
     data = r.get_json()
     assert data["std_comp"] is True
     assert data["no_dupes"] is True
@@ -101,4 +114,4 @@ def test_compute_with_people(client):
 def test_index_redirect(client):
     r = client.get("/")
     assert r.status_code == 200
-    assert b"Admin" in r.data
+    assert b"Go to Party Planner Dashboard" in r.data
