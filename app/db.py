@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from pathlib import Path
@@ -66,6 +67,18 @@ def init_db() -> None:
             guild_id TEXT NOT NULL,
             role_id TEXT NOT NULL,
             PRIMARY KEY (guild_id, role_id)
+        );
+        CREATE TABLE IF NOT EXISTS lodestone_links (
+            discord_id TEXT NOT NULL,
+            lodestone_id TEXT NOT NULL,
+            character_name TEXT,
+            fetched_at TEXT,
+            PRIMARY KEY (discord_id, lodestone_id)
+        );
+        CREATE TABLE IF NOT EXISTS character_cache (
+            lodestone_id TEXT PRIMARY KEY,
+            data TEXT NOT NULL,
+            fetched_at TEXT NOT NULL
         );
     """)
 
@@ -330,3 +343,56 @@ def add_role_id(guild_id: str, role_id: str) -> None:
 def remove_role_id(guild_id: str, role_id: str) -> None:
     get_db().execute("DELETE FROM admin_roles WHERE guild_id = ? AND role_id = ?", (guild_id, role_id))
     get_db().commit()
+
+
+# ── Bot owner ─────────────────────────────────────────────────────────────
+
+
+def bot_owner_id() -> str | None:
+    row = get_db().execute("SELECT value FROM app_state WHERE key='bot_owner_id'").fetchone()
+    return row["value"] if row else None
+
+
+# ── Lodestone ─────────────────────────────────────────────────────────────
+
+
+def set_lodestone_link(discord_id: str, lodestone_id: str, character_name: str | None = None) -> None:
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    get_db().execute(
+        "INSERT OR REPLACE INTO lodestone_links (discord_id, lodestone_id, character_name, fetched_at) VALUES (?, ?, ?, ?)",
+        (discord_id, lodestone_id, character_name, now),
+    )
+    get_db().commit()
+
+
+def get_lodestone_link(discord_id: str) -> dict[str, Any] | None:
+    row = get_db().execute(
+        "SELECT lodestone_id, character_name, fetched_at FROM lodestone_links WHERE discord_id = ?",
+        (discord_id,),
+    ).fetchone()
+    if not row:
+        return None
+    return {"lodestone_id": row["lodestone_id"], "character_name": row["character_name"], "fetched_at": row["fetched_at"]}
+
+
+def cache_character(lodestone_id: str, data: dict[str, Any]) -> None:
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    get_db().execute(
+        "INSERT OR REPLACE INTO character_cache (lodestone_id, data, fetched_at) VALUES (?, ?, ?)",
+        (lodestone_id, json.dumps(data), now),
+    )
+    get_db().commit()
+
+
+def get_cached_character(lodestone_id: str) -> dict[str, Any] | None:
+    row = get_db().execute(
+        "SELECT data, fetched_at FROM character_cache WHERE lodestone_id = ?",
+        (lodestone_id,),
+    ).fetchone()
+    if not row:
+        return None
+    return json.loads(row["data"])

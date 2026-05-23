@@ -6,21 +6,18 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
 import discord
-from discord import app_commands
-from discord.ui import Button, Select, View
-
-from app.compute import JOBS, JOBS_BY_ID, compute_parties, get_priority, parse_job_id
+from app.compute import JOBS, JOBS_BY_ID, get_priority, parse_job_id
 from app.db import (
     add_role_id,
-    constraints_from_db,
     get_role_ids,
-    people_from_db,
     remove_role_id,
 )
-from app.models import Constraints, Person
+from discord import app_commands
+from discord.ui import Button, Select, View
 
 VALID_JOBS = {j.id for j in JOBS}
 JOB_NAMES = {j.id: j.name for j in JOBS}
@@ -39,11 +36,8 @@ ROLE_JOBS: dict[str, list[str]] = {
     "caster": [j.id for j in JOBS if j.sub == "caster"],
 }
 
-MAX_SHOWN = 5
-
 
 def parse_jobs(s: str) -> list[str]:
-    import re
     raw = [j.strip().lower() for j in re.split(r"[^a-z0-9:]+", s) if j.strip()]
     out: list[str] = []
     for entry in raw:
@@ -77,6 +71,16 @@ class PartyBot(discord.Client):
 
     async def on_ready(self) -> None:
         print(f"Bot logged in as {self.user}")
+        if self.application and self.application.owner:
+            owner_id = str(self.application.owner.id)
+            from app.db import get_db
+
+            get_db().execute(
+                "INSERT OR REPLACE INTO app_state (key, value) VALUES ('bot_owner_id', ?)",
+                (owner_id,),
+            )
+            get_db().commit()
+            print(f"Bot owner ID stored: {owner_id}")
 
 
 client = PartyBot()
@@ -137,31 +141,11 @@ def _build_job_list(jobs: list[str]) -> str:
     return ", ".join(parts) if parts else "*none*"
 
 
-# ── /setjobs ────────────────────────────────────────────────────────────
+# ── /setjobs (interactive UI) ──────────────────────────────────────────
 
 
-@client.tree.command(name="setjobs", description="Set a member's available jobs (admin only)")
-@app_commands.describe(member="The server member", jobs="Comma-separated job IDs, e.g. pld,drk,vpr")
-@app_commands.checks.has_permissions(administrator=True)
-async def setjobs(interaction: discord.Interaction, member: discord.Member, jobs: str) -> None:
-    jids = parse_jobs(jobs)
-    if not jids:
-        await interaction.response.send_message(
-            f"No valid jobs. IDs: `{', '.join(sorted(VALID_JOBS))}`", ephemeral=True
-        )
-        return
-    discord_id = str(member.id) if not member.bot else None
-    _save_person(member.display_name, jids, discord_id)
-    await interaction.response.send_message(
-        f"Set {member.mention}'s jobs: {_build_job_list(jids)}", ephemeral=True
-    )
-
-
-# ── /myjobs (interactive UI) ────────────────────────────────────────────
-
-
-@client.tree.command(name="myjobs", description="Set your own available jobs")
-async def myjobs(interaction: discord.Interaction) -> None:
+@client.tree.command(name="setjobs", description="Set your available jobs")
+async def setjobs(interaction: discord.Interaction) -> None:
     name = interaction.user.display_name
     current = _load_person(name)
     existing = current[0]["jobs"] if current else []
@@ -173,9 +157,7 @@ class MyJobsView(View):
     def __init__(self, name: str, jobs: list[str], user_id: int) -> None:
         super().__init__(timeout=300)
         self.name = name
-        self.jobs: list[tuple[str, int]] = [
-            (parse_job_id(e), get_priority(e)) for e in jobs
-        ]
+        self.jobs: list[tuple[str, int]] = [(parse_job_id(e), get_priority(e)) for e in jobs]
         self.user_id = user_id
         self._build()
 
@@ -221,19 +203,14 @@ class RoleSelect(Select):
         val = self.values[0]
         if val.startswith("all_"):
             role = val.removeprefix("all_")
-            added = 0
             for jid in ROLE_JOBS[role]:
                 if not any(j == jid for j, _ in self._main_view.jobs):
                     self._main_view.jobs.append((jid, 5))
-                    added += 1
             self._main_view._save()
             self._main_view._build()
-            await interaction.response.edit_message(
-                embed=self._main_view.build_embed(), view=self._main_view
-            )
+            await interaction.response.edit_message(embed=self._main_view.build_embed(), view=self._main_view)
             return
-        role = val
-        jobs_for_role = ROLE_JOBS[role]
+        jobs_for_role = ROLE_JOBS[val]
         view = JobPicker(self._main_view, jobs_for_role)
         await interaction.response.send_message("Pick a job to add:", view=view, ephemeral=True)
 
@@ -270,18 +247,13 @@ class JobButton(Button):
             self._main_view.jobs.append((self.jid, 5))
         self._main_view._save()
         self._main_view._build()
-        await interaction.response.edit_message(
-            embed=self._main_view.build_embed(), view=self._main_view
-        )
+        await interaction.response.edit_message(embed=self._main_view.build_embed(), view=self._main_view)
 
 
 class JobAdjustSelect(Select):
     def __init__(self, parent: MyJobsView) -> None:
         opts = [
-            discord.SelectOption(
-                label=f"{JOB_NAMES.get(jid, jid.upper())} [prio {prio}]",
-                value=f"{jid}:{prio}",
-            )
+            discord.SelectOption(label=f"{JOB_NAMES.get(jid, jid.upper())} [prio {prio}]", value=f"{jid}:{prio}")
             for jid, prio in parent.jobs
         ]
         super().__init__(placeholder="Adjust or remove a job…", options=opts, max_values=1)
@@ -321,78 +293,59 @@ class PrioritySelect(Select):
             self._main_view.jobs = [(j, p) for j, p in self._main_view.jobs if j != self.jid]
         else:
             new_prio = int(val)
-            self._main_view.jobs = [
-                (j, new_prio if j == self.jid else p)
-                for j, p in self._main_view.jobs
-            ]
+            self._main_view.jobs = [(j, new_prio if j == self.jid else p) for j, p in self._main_view.jobs]
         self._main_view._save()
         self._main_view._build()
-        await interaction.response.edit_message(
-            embed=self._main_view.build_embed(), view=self._main_view
+        await interaction.response.edit_message(embed=self._main_view.build_embed(), view=self._main_view)
+
+
+# ── /setlodestone ──────────────────────────────────────────────────────
+
+
+@client.tree.command(name="setlodestone", description="Link your FF14 Lodestone character")
+@app_commands.describe(url="Your Lodestone character URL, e.g. https://eu.finalfantasyxiv.com/lodestone/character/54185648/")
+async def setlodestone(interaction: discord.Interaction, url: str) -> None:
+    m = re.search(r"/lodestone/character/(\d+)", url)
+    if not m:
+        await interaction.response.send_message(
+            "Invalid Lodestone URL. Use the full URL from your character page.", ephemeral=True
         )
-
-
-# ── /parties ────────────────────────────────────────────────────────────
-
-
-@client.tree.command(name="parties", description="Compute valid party combinations")
-async def parties(interaction: discord.Interaction) -> None:
-    await interaction.response.defer()
-    raw = people_from_db()
-    if not raw:
-        await interaction.followup.send("No people configured yet. Use `/setjobs` or `/myjobs`.")
         return
-    people = [Person(p["name"], p["jobs"]) for p in raw]
-    c = Constraints.from_dict(constraints_from_db())
-    results = compute_parties(people, c)
-    if not results:
-        await interaction.followup.send("No valid parties with current constraints.")
+    lodestone_id = m.group(1)
+
+    await interaction.response.defer(ephemeral=True)
+
+    from app.db import set_lodestone_link
+    from app.lodestone import fetch_character
+
+    data = fetch_character(lodestone_id)
+    if "error" in data:
+        await interaction.followup.send(data["error"], ephemeral=True)
         return
-    count = len(results)
-    lines = [f"**{count:,} valid party combinations**", ""]
-    for i, party in enumerate(results[:MAX_SHOWN]):
-        parts = [f"{a.name}:{a.job}" for a in party]
-        lines.append(f"`Party {i + 1:>2}`  {', '.join(parts)}")
-    if count > MAX_SHOWN:
-        lines.append(f"\n*... and {count - MAX_SHOWN:,} more. Visit /admin for full list.*")
-    await interaction.followup.send("\n".join(lines))
 
+    discord_id = str(interaction.user.id)
+    set_lodestone_link(discord_id, lodestone_id, data["name"])
 
-# ── /constraints ────────────────────────────────────────────────────────
+    job_lines = []
+    for jid, info in sorted(data.get("jobs", {}).items(), key=lambda x: -x[1].get("level", 0)):
+        lv = info.get("level", "?")
+        il = info.get("ilvl")
+        il_str = f" — ilvl {il}" if il else ""
+        job_lines.append(f"{jid.upper()} lv.{lv}{il_str}")
 
+    embed = discord.Embed(
+        title=f"Lodestone Linked — {data['name']}",
+        description=f"[View on Lodestone](https://eu.finalfantasyxiv.com/lodestone/character/{lodestone_id}/)",
+        color=discord.Color.green(),
+    )
+    if data.get("avg_ilvl"):
+        embed.add_field(name="Average Item Level", value=str(data["avg_ilvl"]), inline=False)
+    if job_lines:
+        embed.add_field(name=f"Jobs ({len(job_lines)})", value="\n".join(job_lines[:15]), inline=False)
+    if data.get("server"):
+        embed.set_footer(text=f"{data['server']}  •  {data.get('source', '')}")
 
-@client.tree.command(name="constraints", description="Show current constraints")
-async def show_constraints(interaction: discord.Interaction) -> None:
-    c = Constraints.from_dict(constraints_from_db())
-    excl_strs = [",".join(g).upper() for g in c.exclusions] if c.exclusions else []
-    lines = [
-        f"Standard comp (2/2/4): {'✅' if c.std_comp else '❌'}",
-        f"No duplicate jobs: {'✅' if c.no_dupes else '❌'}",
-        f"Pure + shield healer: {'✅' if c.heal_mix else '❌'}",
-        f"Melee: {c.min_melee}-{c.max_melee}"
-        f"  Ranged: {c.min_pranged}-{c.max_pranged}"
-        f"  Caster: {c.min_caster}-{c.max_caster}",
-        f"Selfish DPS: {c.min_selfish}-{c.max_selfish}"
-        f"  Utility DPS: {c.min_utility}-{c.max_utility}",
-        f"Exclusions: {', '.join(excl_strs) if excl_strs else 'none'}",
-    ]
-    await interaction.response.send_message("**Constraints**\n" + "\n".join(lines), ephemeral=True)
-
-
-# ── /roster ─────────────────────────────────────────────────────────────
-
-
-@client.tree.command(name="roster", description="Show everyone's saved job pools")
-async def roster(interaction: discord.Interaction) -> None:
-    people = people_from_db()
-    if not people:
-        await interaction.response.send_message("No people configured yet.", ephemeral=True)
-        return
-    embed = discord.Embed(title=f"Roster ({len(people)} people)", color=discord.Color.blue())
-    for p in people:
-        val = _build_job_list(p["jobs"])
-        embed.add_field(name=p["name"], value=val, inline=False)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 # ── Admin role commands ─────────────────────────────────────────────────
@@ -409,9 +362,7 @@ async def admin_role_add(interaction: discord.Interaction, role: discord.Role) -
     )
 
 
-@client.tree.command(
-    name="admin-role-remove", description="Remove a role from admin panel whitelist"
-)
+@client.tree.command(name="admin-role-remove", description="Remove a role from admin panel whitelist")
 @app_commands.describe(role="Role to remove from whitelist")
 @app_commands.checks.has_permissions(administrator=True)
 async def admin_role_remove(interaction: discord.Interaction, role: discord.Role) -> None:
@@ -434,9 +385,7 @@ async def admin_role_list(interaction: discord.Interaction) -> None:
         return
     guild = interaction.guild
     if not guild:
-        await interaction.response.send_message(
-            "This command must be used in a server.", ephemeral=True
-        )
+        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
         return
     names: list[str] = []
     for rid in role_ids:

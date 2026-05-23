@@ -20,7 +20,7 @@ from flask import (
 from flask_discord import DiscordOAuth2Session  # type: ignore[import-untyped]
 from oauthlib.oauth2 import MismatchingStateError
 
-from app.db import get_role_ids
+from app.db import bot_owner_id, get_role_ids
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,9 @@ def check_access() -> bool:
     user = discord.fetch_user()
     user_id = str(user.id)
     guild_id = _guild_id()
+
+    if bot_owner_id() == user_id:
+        return True
 
     if not guild_id:
         return False

@@ -25,6 +25,7 @@ from app.db import (
     constraints_to_db,
     create_party,
     delete_party,
+    get_lodestone_link,
     parties_list,
     people_from_db,
     people_pool,
@@ -221,6 +222,17 @@ def api_people_pool_remove() -> Response:
         return make_response(jsonify({"error": "name required"}), 400)
     remove_person_from_party(name)
     return jsonify({"ok": True})
+
+
+@bp.route("/api/lodestone/<discord_id>")
+def api_lodestone(discord_id: str) -> Response:
+    link = get_lodestone_link(discord_id)
+    if not link:
+        return make_response(jsonify({"error": "no lodestone link"}), 404)
+    from app.lodestone import fetch_character
+
+    data = fetch_character(link["lodestone_id"])
+    return jsonify(data)
 
 
 REPO_DIR = Path(__file__).resolve().parent.parent
