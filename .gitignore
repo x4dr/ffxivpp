@@ -6,3 +6,4 @@ party.db-*
 .python-version
 restart_server.sh
 .tmp/
+backups/

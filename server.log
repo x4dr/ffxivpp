@@ -132,3 +132,5 @@ DEBUG:app.db:Database connection 140623574259632 closed after 0.0000s
 DEBUG:app.db:Database connection opened: 140623574259632
 DEBUG:app.db:Database connection 140623574259632 closed after 0.0001s
 INFO:werkzeug:127.0.0.1 - - [23/May/2026 19:39:42] "GET /api/compute/stream HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 20:06:57] "[33mGET /admin HTTP/1.1[0m" 404 -
+INFO:werkzeug:127.0.0.1 - - [23/May/2026 20:06:59] "[33mGET /admin HTTP/1.1[0m" 404 -

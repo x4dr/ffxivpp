@@ -336,7 +336,10 @@ def add_person_to_party(person_name: str, party_name: str | None = None) -> None
     if party_name is None:
         party_name = active_party_name()
     with db_connection() as db:
-        db.execute("INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES (?, ?)", (party_name, person_name))
+        db.execute(
+            "INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES (?, ?)",
+            (party_name, person_name),
+        )
         db.commit()
 
 

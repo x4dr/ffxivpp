@@ -527,7 +527,7 @@ class PersistentPartyView(View):
         from app.db import add_person_to_party
         logging.info(f"Join button clicked by {interaction.user.display_name} (ID: {interaction.user.id})")
         party_name = interaction.message.embeds[0].title.replace("Party: ", "")
-        add_person_to_party(interaction.user.display_name, str(interaction.user.id), party_name)
+        add_person_to_party(interaction.user.display_name, party_name)
         logging.info(f"User {interaction.user.display_name} added to party {party_name}")
         await interaction.response.defer()
         await self.update_embed(interaction.channel, interaction.message)
