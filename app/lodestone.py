@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import json
 import logging
-import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import requests as http
 from bs4 import BeautifulSoup as BS
 
-from app.db import cache_character, get_cached_character, get_db
+from app.db import cache_character, get_cached_character
 
 logger = logging.getLogger(__name__)
 
@@ -64,70 +63,12 @@ def fetch_character(lodestone_id: str) -> dict[str, Any]:
             except ValueError:
                 pass
 
-    data = _try_xivapi(lodestone_id)
-    if data:
-        cache_character(lodestone_id, data)
-        return data
-
     data = _scrape_lodestone(lodestone_id)
     if data:
         cache_character(lodestone_id, data)
         return data
 
     return {"error": "Could not fetch character data."}
-
-
-def _try_xivapi(lodestone_id: str) -> dict[str, Any] | None:
-    _wait_rate_limit()
-    try:
-        resp = http.get(
-            f"https://xivapi.com/character/{lodestone_id}?data=AC",
-            timeout=15,
-            headers={"User-Agent": "FF14PartyPlanner/1.0"},
-        )
-        if resp.status_code != 200:
-            logger.warning("XIVAPI returned %s for %s", resp.status_code, lodestone_id)
-            return None
-        body = resp.json()
-        char = body.get("Character")
-        if not char:
-            return None
-
-        char_name = char.get("Name", "Unknown")
-        jobs: dict[str, dict[str, Any]] = {}
-        for cj in char.get("ClassJobs") or []:
-            jn = cj.get("Job", {}).get("Name") or cj.get("UnlockedState", {}).get("Name", "")
-            jid = LODESTONE_TO_ID.get(_normalise_job_name(jn))
-            level = cj.get("Level", 0)
-            ilvl = cj.get("ItemLevel", 0)
-            if jid:
-                jobs[jid] = {"level": level, "ilvl": ilvl}
-
-        gear = char.get("GearSet", {}) or {}
-        gear_items: dict[str, Any] = {}
-        for slot, item in (gear.get("Gear") or {}).items():
-            gear_items[slot] = {
-                "name": item.get("Name", "?"),
-                "ilvl": item.get("ILvl", 0),
-                "category": item.get("ItemCategory", {}).get("Name", ""),
-            }
-
-        avg_ilvl = (gear.get("ItemLevel") or 0) or None
-
-        data = {
-            "lodestone_id": lodestone_id,
-            "name": char_name,
-            "server": char.get("Server", ""),
-            "portrait": char.get("Portrait", ""),
-            "avg_ilvl": avg_ilvl,
-            "jobs": jobs,
-            "gear": gear_items,
-            "source": "xivapi",
-        }
-        return data
-    except Exception as e:
-        logger.warning("XIVAPI error for %s: %s", lodestone_id, e)
-        return None
 
 
 def _scrape_lodestone(lodestone_id: str) -> dict[str, Any] | None:
@@ -153,25 +94,10 @@ def _scrape_lodestone(lodestone_id: str) -> dict[str, Any] | None:
         portrait_el = soup.select_one(".character__detail__image img")
         portrait = portrait_el.get("src", "") if portrait_el else ""
 
-        # Average item level — search near the name/header area
-        avg_ilvl: int | None = None
-        for el in soup.select("[class*=average] [class*=level], .character__average__level__value"):
-            txt = el.text.strip()
-            if txt.isdigit():
-                avg_ilvl = int(txt)
-                break
-        if avg_ilvl is None:
-            for tag in soup.find_all(string=re.compile(r"[Aa]verage.*[Ii]tem.*[Ll]evel|[Ii]tem.*[Ll]evel.*[0-9]{3}")):
-                m = re.search(r"([0-9]{3,4})", tag)
-                if m:
-                    avg_ilvl = int(m.group(1))
-                    break
-
         # Class/job levels
         jobs: dict[str, dict[str, Any]] = {}
         for level_box in soup.select(".character__level"):
-            items = level_box.select(".character__level__list li")
-            for li in items:
+            for li in level_box.select(".character__level__list li"):
                 img = li.select_one("img")
                 if not img:
                     continue
@@ -180,14 +106,36 @@ def _scrape_lodestone(lodestone_id: str) -> dict[str, Any] | None:
                 if not jid:
                     continue
                 lv_text = li.get_text(strip=True)
-                level = 0
-                if lv_text.isdigit():
-                    level = int(lv_text)
-                if level > 0:
-                    if jid not in jobs or level > jobs[jid].get("level", 0):
-                        jobs[jid] = {"level": level, "ilvl": None}
+                level = int(lv_text) if lv_text.isdigit() else 0
+                if level > 0 and (jid not in jobs or level > jobs[jid].get("level", 0)):
+                    jobs[jid] = {"level": level, "ilvl": None}
 
-        data = {
+        # Average item level — fetch equipment tooltips in parallel for valid slots
+        GEAR_SLOTS = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12]
+        avg_ilvl = None
+        ilvls = []
+        tip_urls = [f"{url}equipment/tooltip/{s}" for s in GEAR_SLOTS]
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            fut_map = {
+                pool.submit(http.get, u, timeout=10, headers={"User-Agent": "Mozilla/5.0"}): u
+                for u in tip_urls
+            }
+            for fut in as_completed(fut_map):
+                try:
+                    resp2 = fut.result()
+                    if resp2.status_code == 200:
+                        tsoup = BS(resp2.text, "html.parser")
+                        lvl_el = tsoup.select_one(".db-tooltip__item__level")
+                        if lvl_el:
+                            m = re.search(r"(\d+)", lvl_el.text)
+                            if m:
+                                ilvls.append(int(m.group(1)))
+                except Exception:
+                    continue
+        if ilvls:
+            avg_ilvl = round(sum(ilvls) / len(ilvls))
+
+        return {
             "lodestone_id": lodestone_id,
             "name": char_name,
             "server": server,
@@ -197,7 +145,6 @@ def _scrape_lodestone(lodestone_id: str) -> dict[str, Any] | None:
             "gear": {},
             "source": "lodestone",
         }
-        return data
     except Exception as e:
         logger.warning("Lodestone scrape error for %s: %s", lodestone_id, e)
         return None

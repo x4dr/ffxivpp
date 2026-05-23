@@ -395,4 +395,20 @@ def get_cached_character(lodestone_id: str) -> dict[str, Any] | None:
     ).fetchone()
     if not row:
         return None
+    data = json.loads(row["data"])
+    data["fetched_at"] = row["fetched_at"]
+    return data
+
+
+def get_character_data(person_name: str) -> dict[str, Any] | None:
+    db = get_db()
+    row = db.execute(
+        """SELECT l.lodestone_id, c.data FROM people p
+           JOIN lodestone_links l ON p.discord_id = l.discord_id
+           JOIN character_cache c ON l.lodestone_id = c.lodestone_id
+           WHERE p.name = ?""",
+        (person_name,),
+    ).fetchone()
+    if not row:
+        return None
     return json.loads(row["data"])

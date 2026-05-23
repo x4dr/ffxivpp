@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import os
 import re
+import asyncio
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import discord
@@ -68,6 +70,27 @@ class PartyBot(discord.Client):
             await self.tree.sync(guild=guild)
         else:
             await self.tree.sync()
+        self.loop.create_task(self.scraper_loop())
+
+    async def scraper_loop(self) -> None:
+        """Background loop to refresh character data."""
+        from app.db import get_db
+        from app.lodestone import fetch_character
+
+        loop = asyncio.get_event_loop()
+        await asyncio.sleep(10)
+        while not self.is_closed():
+            try:
+                row = get_db().execute(
+                    "SELECT lodestone_id FROM lodestone_links ORDER BY fetched_at ASC LIMIT 1"
+                ).fetchone()
+                if row:
+                    # Run blocking fetch in executor to avoid blocking bot loop
+                    await loop.run_in_executor(None, fetch_character, row["lodestone_id"])
+            except Exception as e:
+                print(f"Scraper error: {e}")
+            await asyncio.sleep(10)
+
 
     async def on_ready(self) -> None:
         print(f"Bot logged in as {self.user}")

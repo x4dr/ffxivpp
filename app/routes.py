@@ -267,13 +267,28 @@ def api_polls() -> Response:
     if len(parties) > 10:
         return make_response(jsonify({"error": "max 10 parties per poll"}), 400)
 
+    from app.db import get_character_data
+
     role_emoji = {"tank": "🛡️", "healer": "💚", "dps": "⚔️"}
 
     embed_fields = []
     for i, party in enumerate(parties):
         members = party.get("members", [])
-        job_strs = [m["job"] for m in members]
-        name_lines = [f"{role_emoji.get(m['role'], '▪')} **{m['name']}** — {m['job']}" for m in members]
+        name_lines = []
+        for m in members:
+            # Try to get level
+            char = get_character_data(m["name"])
+            level = None
+            if char:
+                # Find the job in the cached character data
+                job_map = char.get("jobs", {})
+                jid = m["job"].lower()
+                if jid in job_map:
+                    level = job_map[jid].get("level")
+            
+            lvl_str = f" (lv.{level})" if level else ""
+            name_lines.append(f"{role_emoji.get(m['role'], '▪')} **{m['name']}**{lvl_str} — {m['job']}")
+
         embed_fields.append({
             "name": f"Party {i + 1}  —  Score {party.get('score', '?')}",
             "value": "\n".join(name_lines),
