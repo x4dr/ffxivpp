@@ -101,8 +101,8 @@ def login() -> Response:
 def callback() -> Response:
     url_state = request.values.get("state", "MISSING")
     session_state = session.get("DISCORD_OAUTH2_STATE", "MISSING")
-    logger.info("OAuth callback — url_state=%s session_state=%s secret_key=%s...",
-                url_state[:20], session_state[:20], current_app.secret_key[:10])
+    logger.info("OAuth callback — url_state=%s session_state=%s",
+                url_state[:20], session_state[:20])
     try:
         get_discord().callback()
     except MismatchingStateError:
@@ -112,7 +112,7 @@ def callback() -> Response:
                             "Please <a href='/auth/login'>log in again</a>.", 400)
     if check_access():
         return redirect(url_for("api.admin"))  # type: ignore[return-value]
-    return make_response("You are not authorized to access the admin panel.", 403)
+    return make_response("You are not authorized to access the Party Planner Dashboard.", 403)
 
 
 @bp.route("/logout")

@@ -3,17 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FF14 Party Planner — Admin</title>
+<title>FF14 Party Planner — Dashboard</title>
 <link rel="stylesheet" href="/static/admin.css">
 </head>
 <body>
 <div class="container">
 
   <div class="header">
-    <div class="header-left"><h1>FF14 Party Planner</h1></div>
+    <div class="header-left"><h1>FF14 Party Planner Dashboard</h1></div>
     <div style="display:flex;align-items:center;gap:8px;">
       <span style="font-size:0.8rem;color:#666;">Party:</span>
       <select id="party-select" onchange="switchParty(this.value)" style="background:#12122e;color:#e0e0e0;border:1px solid #3a3a6a;border-radius:4px;padding:4px 8px;font-size:0.85rem;"></select>
+      <span style="font-size:0.8rem;color:#666;">Home Channel:</span>
+      <select id="home-channel-select" onchange="saveHomeChannel(this.value)" style="background:#12122e;color:#e0e0e0;border:1px solid #3a3a6a;border-radius:4px;padding:4px 8px;font-size:0.85rem;"></select>
       <input id="new-party-name" placeholder="New party name" style="background:#12122e;color:#e0e0e0;border:1px solid #3a3a6a;border-radius:4px;padding:4px 8px;font-size:0.85rem;width:140px;" onkeydown="if(event.key==='Enter')createParty()">
       <button class="btn btn-sm btn-primary" onclick="createParty()">+</button>
       <button class="btn btn-sm btn-danger" onclick="deleteCurrentParty()" id="delete-party-btn" title="Delete this party">🗑</button>
@@ -610,8 +612,20 @@ async function fetchParties() {
   const data = await r.json();
   activeParty = data.active;
   const sel = document.getElementById('party-select');
-  sel.innerHTML = data.parties.map(n => `<option value="${n}"${n === data.active ? ' selected' : ''}>${n}</option>`).join('');
+  sel.innerHTML = data.parties.map(p => `<option value="${p.name}"${p.name === data.active ? ' selected' : ''}>${p.name}</option>`).join('');
   document.getElementById('delete-party-btn').style.display = data.active === 'Default' ? 'none' : 'inline-block';
+  
+  // Set home channel select
+  const activePartyDetails = data.parties.find(p => p.name === data.active);
+  const homeSel = document.getElementById('home-channel-select');
+  if (activePartyDetails) homeSel.value = activePartyDetails.home_channel_id || '';
+}
+
+async function saveHomeChannel(channelId) {
+  await fetch('/api/parties/home-channel', {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({party_name: activeParty, channel_id: channelId})
+  });
+  showStatus('Home channel updated', 'ok');
 }
 
 async function switchParty(name) {
@@ -678,13 +692,20 @@ async function fetchChannels() {
   const r = await fetch('/api/channels');
   if (!r.ok) return;
   const channels = await r.json();
-  const sel = document.getElementById('channel-select');
-  for (const ch of channels) {
-    const opt = document.createElement('option');
-    opt.value = ch.id;
-    opt.textContent = '#' + ch.name;
-    sel.appendChild(opt);
+  const sels = [document.getElementById('channel-select'), document.getElementById('home-channel-select')];
+  
+  // Clear and add default
+  for (const sel of sels) {
+    sel.innerHTML = '<option value="">— Select channel —</option>';
+    for (const ch of channels) {
+      const opt = document.createElement('option');
+      opt.value = ch.id;
+      opt.textContent = '#' + ch.name;
+      sel.appendChild(opt);
+    }
   }
+  // Re-fetch parties to set correct value after channels are populated
+  fetchParties();
 }
 
 async function postPoll() {

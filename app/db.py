@@ -129,6 +129,12 @@ def init_db() -> None:
             INSERT OR IGNORE INTO parties (name) VALUES ('Default');
             INSERT OR IGNORE INTO app_state (key, value) VALUES ('active_party', 'Default');
         """)
+        
+        if not _table_has_col("parties", "home_channel_id"):
+            db.execute("ALTER TABLE parties ADD COLUMN home_channel_id TEXT")
+        if not _table_has_col("parties", "home_message_id"):
+            db.execute("ALTER TABLE parties ADD COLUMN home_message_id TEXT")
+
 
         default_cfg = [
             ("std_comp", "true"),
@@ -167,6 +173,12 @@ def parties_list() -> list[str]:
     with db_connection() as db:
         rows = db.execute("SELECT name FROM parties ORDER BY name").fetchall()
         return [r["name"] for r in rows]
+
+
+def get_parties_details() -> list[dict[str, Any]]:
+    with db_connection() as db:
+        rows = db.execute("SELECT name, home_channel_id FROM parties ORDER BY name").fetchall()
+        return [{"name": r["name"], "home_channel_id": r["home_channel_id"]} for r in rows]
 
 
 def create_party(name: str) -> None:
@@ -271,22 +283,28 @@ def remove_person_from_party(person_name: str, party_name: str | None = None) ->
 
 
 
-def add_person_to_party(person_name: str, party_name: str | None = None) -> None:
-    if party_name is None:
-        party_name = active_party_name()
-    db = get_db()
-    db.execute("INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES (?, ?)", (party_name, person_name))
-    db.commit()
-    close_db(conn=db)
-
-
-def remove_person_from_party(person_name: str, party_name: str | None = None) -> None:
-    if party_name is None:
-        party_name = active_party_name()
-    db = get_db()
-    db.execute("DELETE FROM party_people WHERE party_name = ? AND person_name = ?", (party_name, person_name))
-    db.commit()
-    close_db(conn=db)
+def get_party_members(party_name: str) -> list[dict[str, Any]]:
+    with db_connection() as db:
+        rows = db.execute(
+            """SELECT p.id, p.name, p.jobs, l.lodestone_id, l.character_name, c.fetched_at 
+               FROM people p
+               JOIN party_people pp ON pp.person_name = p.name
+               LEFT JOIN lodestone_links l ON p.id = l.person_id
+               LEFT JOIN character_cache c ON l.lodestone_id = c.lodestone_id
+               WHERE pp.party_name = ?""",
+            (party_name,),
+        ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "jobs": [j for j in (r["jobs"] or "").split(",") if j],
+                "lodestone_id": r["lodestone_id"],
+                "character_name": r["character_name"],
+                "fetched_at": r["fetched_at"]
+            }
+            for r in rows
+        ]
 
 
 # ── Constraints (per-party) ──────────────────────────────────────────────
@@ -420,23 +438,6 @@ def get_cached_character(lodestone_id: str) -> dict[str, Any] | None:
         data = json.loads(row["data"])
         data["fetched_at"] = row["fetched_at"]
         return data
-
-
-def get_character_data(person_name: str) -> dict[str, Any] | None:
-    with db_connection() as db:
-        row = db.execute(
-            """SELECT l.lodestone_id, c.data, l.character_name FROM people p
-               JOIN lodestone_links l ON p.id = l.person_id
-               JOIN character_cache c ON l.lodestone_id = c.lodestone_id
-               WHERE p.name = ?""",
-            (person_name,),
-        ).fetchone()
-        if not row:
-            return None
-        data = json.loads(row["data"])
-        data["character_name"] = row["character_name"]
-        return data
-
 
 
 def get_character_data(person_name: str) -> dict[str, Any] | None:

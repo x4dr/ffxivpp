@@ -16,7 +16,7 @@ from flask import (
     stream_with_context,
 )
 
-from app.auth import get_discord, require_admin
+from app.auth import _bot_api, _guild_id, check_access, get_discord, require_admin
 from app.compute import JOBS, JOBS_BY_ID, compute_parties, compute_parties_stream
 from app.db import (
     active_party_name,
@@ -24,8 +24,10 @@ from app.db import (
     constraints_from_db,
     constraints_to_db,
     create_party,
+    db_connection,
     delete_party,
     get_lodestone_link,
+    get_parties_details,
     parties_list,
     people_from_db,
     people_pool,
@@ -68,6 +70,8 @@ def api_jobs() -> Response:
 def api_people() -> Response:
     if request.method == "GET":
         return jsonify(people_from_db())
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     if not isinstance(data, list):
         return make_response(jsonify({"error": "expected array of {name, jobs}"}), 400)
@@ -79,6 +83,8 @@ def api_people() -> Response:
 def api_constraints() -> Response:
     if request.method == "GET":
         return jsonify(constraints_from_db())
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     if not isinstance(data, dict):
         return make_response(jsonify({"error": "expected object"}), 400)
@@ -97,6 +103,8 @@ def api_exclusions() -> Response:
             (party_name,),
         ).fetchall()
         return jsonify([r["jobs"].split(",") for r in rows])
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     if not isinstance(data, list):
         return make_response(jsonify({"error": "expected array"}), 400)
@@ -175,9 +183,11 @@ def api_members() -> Response:
 def api_parties() -> Response:
     if request.method == "GET":
         return jsonify({
-            "parties": parties_list(),
+            "parties": get_parties_details(),
             "active": active_party_name(),
         })
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     name = data.get("name", "").strip()
     if not name:
@@ -188,6 +198,8 @@ def api_parties() -> Response:
 
 @bp.route("/api/parties/switch", methods=["POST"])
 def api_parties_switch() -> Response:
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     name = data.get("name", "").strip()
     if not name:
@@ -196,13 +208,19 @@ def api_parties_switch() -> Response:
     return jsonify({"ok": True})
 
 
-@bp.route("/api/parties/delete", methods=["POST"])
-def api_parties_delete() -> Response:
+@bp.route("/api/parties/home-channel", methods=["PUT"])
+def api_parties_home_channel() -> Response:
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
-    name = data.get("name", "").strip()
-    if not name:
-        return make_response(jsonify({"error": "name required"}), 400)
-    delete_party(name)
+    party_name = data.get("party_name", "").strip()
+    channel_id = data.get("channel_id", "").strip()
+    if not party_name:
+        return make_response(jsonify({"error": "party_name required"}), 400)
+    
+    with db_connection() as db:
+        db.execute("UPDATE parties SET home_channel_id = ? WHERE name = ?", (channel_id or None, party_name))
+        db.commit()
     return jsonify({"ok": True})
 
 
@@ -213,6 +231,8 @@ def api_people_pool() -> Response:
 
 @bp.route("/api/people-pool/add", methods=["POST"])
 def api_people_pool_add() -> Response:
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     name = data.get("name", "").strip()
     if not name:
@@ -223,6 +243,8 @@ def api_people_pool_add() -> Response:
 
 @bp.route("/api/people-pool/remove", methods=["POST"])
 def api_people_pool_remove() -> Response:
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
     name = data.get("name", "").strip()
     if not name:
@@ -231,47 +253,16 @@ def api_people_pool_remove() -> Response:
     return jsonify({"ok": True})
 
 
-@bp.route("/api/lodestone/<person_id>")
-def api_lodestone(person_id: str) -> Response:
-    try:
-        pid = int(person_id)
-    except ValueError:
-        return make_response(jsonify({"error": "invalid person_id"}), 400)
-    
-    link = get_lodestone_link(pid)
-    if not link:
-        return make_response(jsonify({"error": "no lodestone link"}), 404)
-    from app.lodestone import fetch_character
-    
-    data = fetch_character(link["lodestone_id"])
-    data["character_name"] = link["character_name"]
-    return jsonify(data)
-
-
-REPO_DIR = Path(__file__).resolve().parent.parent
-
-
-@bp.route("/api/channels")
-def api_channels() -> Response:
-    from app.auth import _bot_api, _guild_id
-
-    guild_id = _guild_id()
-    if not guild_id:
-        return make_response(jsonify({"error": "no guild configured"}), 400)
-    data = _bot_api("GET", f"/guilds/{guild_id}/channels")
-    if not data:
-        return make_response(jsonify({"error": "failed to fetch channels"}), 500)
-    channels = [
-        {"id": c["id"], "name": c["name"]}
-        for c in data if c.get("type") == 0
-    ]
-    return jsonify(channels)
-
-
 @bp.route("/api/polls", methods=["POST"])
 def api_polls() -> Response:
+    if not check_access():
+        return make_response(jsonify({"error": "unauthorized"}), 403)
+    
+    discord = get_discord()
+    user = discord.fetch_user()
+    
     from app.auth import _bot_api
-
+    
     body = request.get_json(force=True)
     channel_id = body.get("channel_id")
     parties = body.get("parties", [])
@@ -310,6 +301,7 @@ def api_polls() -> Response:
 
     embed = {
         "title": "Party Composition Vote",
+        "description": f"Posted by {user.name}",
         "color": 0x4a9eff,
         "fields": embed_fields,
     }
@@ -380,4 +372,4 @@ def admin() -> Response:
 
 @bp.route("/")
 def index() -> Response:
-    return make_response('<a href="/admin">Go to Admin</a>')
+    return make_response('<a href="/admin">Go to Party Planner Dashboard</a>')

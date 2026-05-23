@@ -67,6 +67,7 @@ class PartyBot(discord.Client):
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self) -> None:
+        self.add_view(PersistentPartyView())
         guild_id = os.environ.get("GUILD_ID")
         if guild_id:
             guild = discord.Object(id=int(guild_id))
@@ -128,6 +129,7 @@ class PartyBot(discord.Client):
 
     async def on_ready(self) -> None:
         print(f"Bot logged in as {self.user}")
+        self.add_view(PersistentPartyView())
         if self.application and self.application.owner:
             owner_id = str(self.application.owner.id)
             from app.db import db_connection
@@ -441,24 +443,68 @@ async def admin_role_remove(interaction: discord.Interaction, role: discord.Role
     )
 
 
-@client.tree.command(name="admin-role-list", description="List whitelisted admin roles")
-async def admin_role_list(interaction: discord.Interaction) -> None:
-    guild_id = str(interaction.guild_id)
-    role_ids = get_role_ids(guild_id)
-    if not role_ids:
-        await interaction.response.send_message(
-            "No roles whitelisted yet. Server admins can use `/admin-role-add` to add roles.",
-            ephemeral=True,
-        )
-        return
-    guild = interaction.guild
-    if not guild:
-        await interaction.response.send_message("This command must be used in a server.", ephemeral=True)
-        return
-    names: list[str] = []
-    for rid in role_ids:
-        role = guild.get_role(int(rid))
-        names.append(role.mention if role else f"`{rid}`")
-    await interaction.response.send_message(
-        f"**Whitelisted admin roles:** {', '.join(names)}", ephemeral=True
-    )
+class PersistentPartyView(View):
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+        self.add_item(Button(label="Join", style=discord.ButtonStyle.success, custom_id="party_join"))
+        self.add_item(Button(label="Leave", style=discord.ButtonStyle.danger, custom_id="party_leave"))
+        self.add_item(Button(label="Dashboard", style=discord.ButtonStyle.link, url=os.environ.get("BASE_URL", "http://localhost:5000")))
+
+    async def update_embed(self, channel: discord.TextChannel, message: discord.Message) -> None:
+        from app.db import get_party_members
+        
+        # We need the party name. Can we extract it from the existing embed?
+        party_name = message.embeds[0].title.replace("Party: ", "")
+        
+        members = get_party_members(party_name)
+        
+        lines = []
+        for m in members:
+            line = f"**{m['name']}**"
+            if not m['jobs']:
+                line += " — ⚠️ Missing Jobs"
+            
+            if not m['lodestone_id']:
+                line += " — ⚠️ Missing Lodestone"
+            else:
+                fetched_at = m['fetched_at']
+                if not fetched_at:
+                    line += " — ⚠️ No Data"
+                else:
+                    ts = datetime.fromisoformat(fetched_at)
+                    if datetime.now(timezone.utc) - ts > timedelta(days=7):
+                        line += " — ⚠️ Outdated Data"
+            lines.append(line)
+        
+        embed = discord.Embed(title=f"Party: {party_name}", 
+                              description="\n".join(lines) if lines else "No members.", 
+                              color=discord.Color.blue())
+        
+        await message.edit(embed=embed, view=self)
+
+
+@client.tree.command(name="setup-home-channel", description="Setup the persistent home channel embed for a party")
+@app_commands.describe(party_name="The name of the party to set up")
+@app_commands.checks.has_permissions(administrator=True)
+async def setup_home_channel(interaction: discord.Interaction, party_name: str) -> None:
+    from app.db import db_connection
+    
+    # Check if party exists
+    with db_connection() as db:
+        party = db.execute("SELECT name FROM parties WHERE name = ?", (party_name,)).fetchone()
+        if not party:
+            await interaction.response.send_message(f"Party '{party_name}' not found.", ephemeral=True)
+            return
+
+    channel = interaction.channel
+    embed = discord.Embed(title=f"Party: {party_name}", description="Manage your party status here.", color=discord.Color.blue())
+    view = PersistentPartyView()
+    msg = await channel.send(embed=embed, view=view)
+    
+    with db_connection() as db:
+        db.execute("UPDATE parties SET home_channel_id = ?, home_message_id = ? WHERE name = ?", 
+                   (str(channel.id), str(msg.id), party_name))
+        db.commit()
+    
+    await interaction.response.send_message(f"Home channel setup for {party_name}!", ephemeral=True)
+
