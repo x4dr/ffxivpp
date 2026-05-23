@@ -80,7 +80,15 @@ class PartyBot(discord.Client):
 
     async def scraper_loop(self) -> None:
         """Background loop to refresh character data with optimized DB locking."""
-        from app.db import db_connection, update_lodestone_fetched_at, set_lodestone_link
+        from app.db import (
+            db_connection, 
+            update_lodestone_fetched_at, 
+            set_lodestone_link, 
+            get_next_scraper_task, 
+            delete_scraper_task, 
+            get_parties_for_lodestone_id,
+            cache_character
+        )
         from app.lodestone import fetch_character
         import sqlite3
         import random
@@ -91,27 +99,59 @@ class PartyBot(discord.Client):
         
         while not self.is_closed():
             try:
-                # 1. READ: Get ID using context manager
+                task = get_next_scraper_task()
                 person_id = None
-                lodestone_id = None
-                with db_connection() as db:
-                    row = db.execute(
-                        "SELECT person_id, lodestone_id FROM lodestone_links ORDER BY fetched_at ASC LIMIT 1"
-                    ).fetchone()
-                    person_id = row['person_id'] if row else None
-                    lodestone_id = row['lodestone_id'] if row else None
+                
+                if task:
+                    lodestone_id = task['lodestone_id']
+                    with db_connection() as db:
+                        row = db.execute("SELECT person_id FROM lodestone_links WHERE lodestone_id = ?", (lodestone_id,)).fetchone()
+                        person_id = row['person_id'] if row else None
+                    logging.info(f"Scraping high-priority {lodestone_id}...")
+                    sleep_time = 1
+                    is_priority = True
+                else:
+                    # Fallback to regular task
+                    with db_connection() as db:
+                        row = db.execute(
+                            "SELECT person_id, lodestone_id FROM lodestone_links ORDER BY fetched_at ASC LIMIT 1"
+                        ).fetchone()
+                        lodestone_id = row['lodestone_id'] if row else None
+                        person_id = row['person_id'] if row else None
+                    sleep_time = 10
+                    is_priority = False
                 
                 if lodestone_id:
-                    logging.info(f"Scraping {lodestone_id}...")
                     # 2. NETWORK IO: Run without holding any DB lock
                     data = await loop.run_in_executor(None, fetch_character, lodestone_id)
                     
                     # 3. WRITE: Open only when needed using context manager
                     if data and "name" in data:
+                        cache_character(lodestone_id, data)
                         update_lodestone_fetched_at(lodestone_id)
-                        set_lodestone_link(person_id, lodestone_id, data["name"])
+                        if person_id:
+                            set_lodestone_link(person_id, lodestone_id, data["name"])
+                        
+                        # Find party/channel/message to update
+                        parties_to_update = get_parties_for_lodestone_id(lodestone_id)
+                        for party_info in parties_to_update:
+                            channel = self.get_channel(int(party_info['channel_id']))
+                            if channel and isinstance(channel, discord.TextChannel):
+                                try:
+                                    message = await channel.fetch_message(int(party_info['message_id']))
+                                    view = PersistentPartyView()
+                                    await view.update_embed(channel, message)
+                                except Exception as e:
+                                    logging.error(f"Failed to update embed for {party_info['name']}: {e}")
+                        
+                        if is_priority:
+                            delete_scraper_task(lodestone_id)
                         
                     logging.info(f"Finished scraping {lodestone_id}.")
+                else:
+                    await asyncio.sleep(sleep_time) # Wait if no tasks at all
+                    continue # Skip the trailing sleep if we just did a wait
+
             except sqlite3.OperationalError as e:
 
                 if "locked" in str(e).lower():
@@ -123,7 +163,7 @@ class PartyBot(discord.Client):
                     logging.error(f"Database error: {e}")
             except Exception as e:
                 logging.error(f"Scraper error: {e}")
-            await asyncio.sleep(10)
+            await asyncio.sleep(sleep_time)
 
 
 

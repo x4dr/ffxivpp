@@ -316,28 +316,18 @@ def remove_person_from_party(person_name: str, party_name: str | None = None) ->
 
 
 
-def get_party_members(party_name: str) -> list[dict[str, Any]]:
+def get_parties_for_lodestone_id(lodestone_id: str) -> list[dict[str, Any]]:
     with db_connection() as db:
         rows = db.execute(
-            """SELECT p.id, p.name, p.jobs, l.lodestone_id, l.character_name, c.fetched_at 
-               FROM people p
-               JOIN party_people pp ON pp.person_name = p.name
-               LEFT JOIN lodestone_links l ON p.id = l.person_id
-               LEFT JOIN character_cache c ON l.lodestone_id = c.lodestone_id
-               WHERE pp.party_name = ?""",
-            (party_name,),
+            """SELECT p.home_channel_id, p.home_message_id, p.name 
+               FROM parties p
+               JOIN party_people pp ON p.name = pp.party_name
+               JOIN people pe ON pp.person_name = pe.name
+               JOIN lodestone_links l ON pe.id = l.person_id
+               WHERE l.lodestone_id = ? AND p.home_channel_id IS NOT NULL""",
+            (lodestone_id,),
         ).fetchall()
-        return [
-            {
-                "id": r["id"],
-                "name": r["name"],
-                "jobs": [j for j in (r["jobs"] or "").split(",") if j],
-                "lodestone_id": r["lodestone_id"],
-                "character_name": r["character_name"],
-                "fetched_at": r["fetched_at"]
-            }
-            for r in rows
-        ]
+        return [{"channel_id": r["home_channel_id"], "message_id": r["home_message_id"], "name": r["name"]} for r in rows]
 
 
 # ── Constraints (per-party) ──────────────────────────────────────────────
