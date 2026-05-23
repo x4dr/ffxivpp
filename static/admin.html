@@ -103,6 +103,8 @@
     </div>
   </div>
 
+  <div id="status" class="status"></div>
+
   <div class="grid">
     <div>
       <div class="card">
@@ -229,7 +231,6 @@
     </div>
   </div>
 
-  <div id="status" class="status"></div>
 </div>
 
 <script>
@@ -454,6 +455,15 @@ async function computeParties() {
       eta = s >= 60 ? ` ETA ${Math.ceil(s / 60)}m` : ` ETA ${s}s`;
     }
     c.innerHTML = `<div class="empty-state"><p style="color:#4a9eff;">⏳ ${pct}% — found ${found.toLocaleString()} parties, explored ${explored.toLocaleString()} / ${d.total.toLocaleString()} combos${eta}</p></div>`;
+  });
+
+  source.addEventListener('error', () => {
+    source.close();
+    btn.disabled = false;
+    btn.textContent = 'Compute';
+    c.innerHTML = '<div class="empty-state"><p style="color:#e74c3c;">Stream error — no valid combos or server issue.</p></div>';
+    showPollBar();
+    showStatus('Compute failed.', 'err');
   });
 
   source.addEventListener('complete', (e) => {

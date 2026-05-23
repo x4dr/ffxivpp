@@ -125,6 +125,24 @@ def api_compute() -> Response:
     })
 
 
+@bp.route("/api/compute/stream")
+def api_compute_stream() -> Response:
+    raw = people_from_db()
+    if not raw:
+        def _noop() -> Generator[str, None, None]:
+            yield "event: complete\ndata: " + json.dumps({"found": 0, "parties": []}) + "\n\n"
+        return Response(stream_with_context(_noop()), mimetype="text/event-stream")
+
+    people = [Person(p["name"], p["jobs"]) for p in raw]
+    constraints = Constraints.from_dict(constraints_from_db())
+
+    def _generate() -> Generator[str, None, None]:
+        for event_type, data in compute_parties_stream(people, constraints):
+            yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+
+    return Response(stream_with_context(_generate()), mimetype="text/event-stream")
+
+
 @bp.route("/api/members")
 def api_members() -> Response:
     from app.auth import _bot_api, _guild_id
