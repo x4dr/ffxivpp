@@ -79,7 +79,7 @@ class PartyBot(discord.Client):
 
     async def scraper_loop(self) -> None:
         """Background loop to refresh character data with optimized DB locking."""
-        from app.db import get_db, close_db, update_lodestone_fetched_at, set_lodestone_link
+        from app.db import db_connection, update_lodestone_fetched_at, set_lodestone_link
         from app.lodestone import fetch_character
         import sqlite3
         import random
@@ -90,24 +90,23 @@ class PartyBot(discord.Client):
         
         while not self.is_closed():
             try:
-                # 1. READ: Get ID and close immediately
-                db = get_db()
-                row = db.execute(
-                    "SELECT person_id, lodestone_id FROM lodestone_links ORDER BY fetched_at ASC LIMIT 1"
-                ).fetchone()
-                person_id = row['person_id'] if row else None
-                lodestone_id = row['lodestone_id'] if row else None
-                close_db(db)
+                # 1. READ: Get ID using context manager
+                person_id = None
+                lodestone_id = None
+                with db_connection() as db:
+                    row = db.execute(
+                        "SELECT person_id, lodestone_id FROM lodestone_links ORDER BY fetched_at ASC LIMIT 1"
+                    ).fetchone()
+                    person_id = row['person_id'] if row else None
+                    lodestone_id = row['lodestone_id'] if row else None
                 
                 if lodestone_id:
                     logging.info(f"Scraping {lodestone_id}...")
                     # 2. NETWORK IO: Run without holding any DB lock
                     data = await loop.run_in_executor(None, fetch_character, lodestone_id)
                     
-                    # 3. WRITE: Open only when needed
+                    # 3. WRITE: Open only when needed using context manager
                     if data and "name" in data:
-                        # Helper functions call get_db(). We need to close them.
-                        # This is inefficient, but will stop the leaks.
                         update_lodestone_fetched_at(lodestone_id)
                         set_lodestone_link(person_id, lodestone_id, data["name"])
                         
@@ -131,13 +130,14 @@ class PartyBot(discord.Client):
         print(f"Bot logged in as {self.user}")
         if self.application and self.application.owner:
             owner_id = str(self.application.owner.id)
-            from app.db import get_db
+            from app.db import db_connection
 
-            get_db().execute(
-                "INSERT OR REPLACE INTO app_state (key, value) VALUES ('bot_owner_id', ?)",
-                (owner_id,),
-            )
-            get_db().commit()
+            with db_connection() as db:
+                db.execute(
+                    "INSERT OR REPLACE INTO app_state (key, value) VALUES ('bot_owner_id', ?)",
+                    (owner_id,),
+                )
+                db.commit()
             print(f"Bot owner ID stored: {owner_id}")
 
 
@@ -169,7 +169,7 @@ def _load_person(name: str, discord_id: str | None = None) -> list[dict[str, Any
 
 
 def _save_person(name: str, jids: list[str], discord_id: str | None = None) -> None:
-    from app.db import get_db, people_pool, pool_save
+    from app.db import db_connection, people_pool, pool_save
 
     current = people_pool()
     if discord_id:
@@ -182,11 +182,12 @@ def _save_person(name: str, jids: list[str], discord_id: str | None = None) -> N
     current.append(entry)
     pool_save(current)
     if discord_id:
-        get_db().execute(
-            "INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES ('Default', ?)",
-            (name,),
-        )
-        get_db().commit()
+        with db_connection() as db:
+            db.execute(
+                "INSERT OR IGNORE INTO party_people (party_name, person_name) VALUES ('Default', ?)",
+                (name,),
+            )
+            db.commit()
 
 
 def _build_job_list(jobs: list[str]) -> str:
@@ -373,7 +374,7 @@ async def setlodestone(interaction: discord.Interaction, url: str) -> None:
 
     await interaction.response.defer(ephemeral=True)
 
-    from app.db import set_lodestone_link
+    from app.db import get_db, close_db, set_lodestone_link
     from app.lodestone import fetch_character
 
     data = fetch_character(lodestone_id)
@@ -381,8 +382,17 @@ async def setlodestone(interaction: discord.Interaction, url: str) -> None:
         await interaction.followup.send(data["error"], ephemeral=True)
         return
 
-    discord_id = str(interaction.user.id)
-    set_lodestone_link(discord_id, lodestone_id, data["name"])
+    # Find the person_id by discord_id
+    db = get_db()
+    row = db.execute("SELECT id FROM people WHERE discord_id = ?", (str(interaction.user.id),)).fetchone()
+    close_db(conn=db)
+    
+    if not row:
+        await interaction.followup.send("Could not find a linked person for your Discord account.", ephemeral=True)
+        return
+        
+    person_id = row['id']
+    set_lodestone_link(person_id, lodestone_id, data["name"])
 
     job_lines = []
     for jid, info in sorted(data.get("jobs", {}).items(), key=lambda x: -x[1].get("level", 0)):
