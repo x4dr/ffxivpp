@@ -5,9 +5,8 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import os
+from typing import Any
 
 import discord
 from discord import app_commands
@@ -177,7 +176,7 @@ class MyJobsView(View):
             embed.description = "\n".join(lines)
         else:
             embed.description = "No jobs set yet. Pick a role below to add some."
-        embed.set_footer(text="Set priorities 1-10, then hit Save.")
+        embed.set_footer(text="Changes are saved automatically.")
         return embed
 
     def _build(self) -> None:
@@ -185,7 +184,10 @@ class MyJobsView(View):
         self.add_item(RoleSelect(self))
         if self.jobs:
             self.add_item(JobAdjustSelect(self))
-        self.add_item(SaveButton(self))
+
+    def _save(self) -> None:
+        job_strs = [f"{jid}:{prio}" for jid, prio in self.jobs]
+        _save_person(self.name, job_strs, str(self.user_id))
 
     async def on_error(self, interaction: discord.Interaction, error: Exception, item: Any) -> None:
         await interaction.response.send_message(f"Error: {error}", ephemeral=True)
@@ -237,6 +239,7 @@ class JobButton(Button):
     async def callback(self, interaction: discord.Interaction) -> None:
         if not any(j == self.jid for j, _ in self._main_view.jobs):
             self._main_view.jobs.append((self.jid, 5))
+        self._main_view._save()
         self._main_view._build()
         await interaction.response.edit_message(
             embed=self._main_view.build_embed(), view=self._main_view
@@ -293,25 +296,10 @@ class PrioritySelect(Select):
                 (j, new_prio if j == self.jid else p)
                 for j, p in self._main_view.jobs
             ]
+        self._main_view._save()
         self._main_view._build()
         await interaction.response.edit_message(
             embed=self._main_view.build_embed(), view=self._main_view
-        )
-
-
-class SaveButton(Button):
-    def __init__(self, parent: MyJobsView) -> None:
-        super().__init__(label="💾 Save", style=discord.ButtonStyle.success)
-        self._main_view = parent
-
-    async def callback(self, interaction: discord.Interaction) -> None:
-        job_strs = [f"{jid}:{prio}" for jid, prio in self._main_view.jobs]
-        _save_person(self._main_view.name, job_strs, str(interaction.user.id))
-        self._main_view._build()
-        await interaction.response.edit_message(
-            content="Jobs saved! ✅",
-            embed=None,
-            view=None,
         )
 
 

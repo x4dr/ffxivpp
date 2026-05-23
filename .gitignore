@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
 party.db
+party.db-*
 .env
 .python-version

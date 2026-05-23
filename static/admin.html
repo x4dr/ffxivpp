@@ -82,11 +82,9 @@
       <div class="card">
         <div class="card-title">People</div>
         <div id="people-editor"></div>
-        <div class="btn-group">
-          <button class="btn btn-sm btn-primary" onclick="addPerson()">+ Add Person</button>
-          <button class="btn btn-sm btn-success" onclick="savePeople()">Save People</button>
-          <button class="btn btn-sm btn-secondary" onclick="fetchPeople()">Revert</button>
-        </div>
+  <div class="btn-group">
+    <button class="btn btn-sm btn-primary" onclick="addPerson()">+ Add Person</button>
+  </div>
       </div>
 
       <div class="card">
@@ -174,7 +172,7 @@
           <button class="btn btn-sm btn-primary" onclick="addExclusion()">Add</button>
         </div>
         <div class="btn-group">
-          <button class="btn btn-success" onclick="saveAndCompute()">Save Constraints &amp; Compute</button>
+          <button class="btn btn-primary" onclick="saveConstraints()">Save Constraints</button>
         </div>
       </div>
     </div>
@@ -182,6 +180,9 @@
     <div>
       <div class="card">
         <div class="card-title">Results</div>
+        <div style="text-align:right;margin-bottom:8px;">
+          <button class="btn btn-success" onclick="saveAndCompute()" id="compute-btn">Compute</button>
+        </div>
         <div id="results"><div class="empty-state"><p>Add some people, set constraints, compute.</p></div></div>
       </div>
     </div>
@@ -249,7 +250,7 @@ function renderPeople() {
     const discord = isDiscordUser(p);
     const nameField = discord
       ? `<span class="p-name" style="font-weight:600;color:#f0c040;">${p.name} <span style="font-size:0.7rem;color:#5865F2;">⬡ Discord</span></span>`
-      : `<input class="p-name" value="${p.name}" placeholder="Name" onchange="people[${i}].name=this.value">`;
+      : `<input class="p-name" value="${p.name}" placeholder="Name" onchange="people[${i}].name=this.value;savePeople()">`;
     return `<div class="person-editor">
       <div class="p-row">
         ${nameField}
@@ -269,11 +270,13 @@ function renderPeople() {
 function addPerson() {
   people.push({name: '', jobs: []});
   renderPeople();
+  savePeople();
 }
 
 function removePerson(i) {
   people.splice(i, 1);
   renderPeople();
+  savePeople();
 }
 
 function addJob(pi, jid) {
@@ -285,12 +288,14 @@ function addJob(pi, jid) {
     people[pi].jobs = parsed.map(jobToString);
   }
   renderPeople();
+  savePeople();
 }
 
 function removeJob(pi, jid) {
   const parsed = people[pi].jobs.map(e => parseJobEntry(e));
   people[pi].jobs = parsed.filter(j => j.id !== jid).map(jobToString);
   renderPeople();
+  savePeople();
 }
 
 function setPrio(pi, jid, val) {
@@ -298,6 +303,7 @@ function setPrio(pi, jid, val) {
   const found = parsed.find(j => j.id === jid);
   if (found) found.priority = Math.max(1, Math.min(10, parseInt(val) || 5));
   people[pi].jobs = parsed.map(jobToString);
+  savePeople();
 }
 
 async function fetchPeople() {
@@ -338,6 +344,19 @@ async function fetchConstraints() {
   }
 }
 
+function saveConstraints() {
+  const data = {};
+  for (const el of document.querySelectorAll('[data-id]')) {
+    data[el.getAttribute('data-id')] = el.type === 'checkbox' ? el.checked : parseInt(el.value);
+  }
+  Promise.all([
+    fetch('/api/constraints', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)}),
+    fetch('/api/exclusions', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(exclusions)}),
+  ]).then(([r1, r2]) => {
+    showStatus(r1.ok && r2.ok ? 'Constraints saved.' : 'Failed.', r1.ok && r2.ok ? 'ok' : 'err');
+  });
+}
+
 function saveAndCompute() {
   const data = {};
   for (const el of document.querySelectorAll('[data-id]')) {
@@ -356,9 +375,15 @@ function saveAndCompute() {
 }
 
 async function computeParties() {
+  const btn = document.getElementById('compute-btn');
+  const c = document.getElementById('results');
+  btn.disabled = true;
+  btn.textContent = 'Computing…';
+  c.innerHTML = '<div class="empty-state"><p style="color:#4a9eff;">⏳ Computing party combinations…</p></div>';
   const r = await fetch('/api/compute', { method: 'POST' });
   const result = await r.json();
-  const c = document.getElementById('results');
+  btn.disabled = false;
+  btn.textContent = 'Compute';
   if (result.error) { c.innerHTML = `<div class="empty-state"><p>${result.error}</p></div>`; return; }
   if (!result.count) { c.innerHTML = '<div class="empty-state"><p>No valid combinations.</p></div>'; return; }
 
