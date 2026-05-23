@@ -7,3 +7,6 @@ party.db-*
 restart_server.sh
 .tmp/
 backups/
+*.log
+lint_report.txt
+code_quality_report.md
