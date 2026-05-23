@@ -69,16 +69,17 @@
   .combo-card .compact .job-chip2.healer { background:#1a4a2a; color:#4ae88a; }
   .combo-card .compact .job-chip2.dps { background:#4a1a1a; color:#ff6b6b; }
   .combo-card .expanded { display:none; margin-top:6px; padding-top:6px; border-top:1px solid #2a2a5a; }
-  .combo-card.open .expanded { display:block; }
-  .combo-card .expanded .slot { display:flex; align-items:center; gap:8px; padding:2px 0; font-size:0.82rem; }
-  .combo-card .expanded .slot .ename { color:#8888aa; min-width:70px; font-size:0.75rem; }
-  .combo-card .expanded .slot .ejob { padding:2px 8px; border-radius:3px; font-size:0.75rem; }
-  .combo-card .expanded .slot .ejob.tank { background:#1a3a6a; color:#6ab0ff; }
-  .combo-card .expanded .slot .ejob.healer { background:#1a4a2a; color:#4ae88a; }
-  .combo-card .expanded .slot .ejob.dps { background:#4a1a1a; color:#ff6b6b; }
+  .combo-card.open .expanded { display:flex; flex-wrap:wrap; gap:6px; }
+  .combo-card .expanded .slot { display:inline-flex; align-items:center; gap:6px; background:#1a1a4e; border:1px solid #2a2a5a; border-radius:6px; padding:4px 10px; font-size:0.8rem; }
+  .combo-card .expanded .slot .ename { color:#b0b0d0; font-size:0.8rem; }
+  .combo-card .expanded .slot .ejob { font-weight:600; }
+  .combo-card .expanded .slot .ejob.tank { color:#6ab0ff; }
+  .combo-card .expanded .slot .ejob.healer { color:#4ae88a; }
+  .combo-card .expanded .slot .ejob.dps { color:#ff6b6b; }
   .poll-bar { display:flex; align-items:center; gap:10px; margin-top:10px; padding:10px 0; border-top:1px solid #2a2a5a; }
   .poll-bar select { background:#12122e; color:#e0e0e0; border:1px solid #3a3a6a; border-radius:4px; padding:6px 10px; font-size:0.85rem; flex:1; }
-  .combo-card input[type=checkbox] { width:16px; height:16px; accent-color:#4a9eff; cursor:pointer; }
+  .combo-card .ck { display:flex; align-items:center; justify-content:center; width:30px; height:30px; cursor:pointer; margin-left:-6px; }
+  .combo-card .ck input { width:18px; height:18px; accent-color:#4a9eff; cursor:pointer; }
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: #1a1a2e; }
   ::-webkit-scrollbar-thumb { background: #3a3a6a; border-radius: 3px; }
@@ -493,7 +494,7 @@ async function computeParties() {
 
       h += `<div class="combo-card" onclick="toggleParty(this)">
         <div class="compact">
-          <input type="checkbox" onclick="event.stopPropagation()" data-idx="${i}" onchange="updateSelected()">
+          <label class="ck" onclick="event.stopPropagation()"><input type="checkbox" data-idx="${i}" onchange="updateSelected()"></label>
           <span class="score">${party.score}</span>
           <div class="jobs">
             ${tanks.map(m => `<span class="job-chip2 tank">${m.job}</span>`).join('')}
@@ -502,7 +503,7 @@ async function computeParties() {
           </div>
         </div>
         <div class="expanded">
-          ${members.map(m => `<div class="slot"><span class="ename">${m.name}</span><span class="ejob ${m.role}">${m.job}</span></div>`).join('')}
+          ${members.map(m => `<div class="slot"><span class="ename">${m.name}</span> <span class="ejob ${m.role}">${m.job}</span></div>`).join('')}
         </div>
       </div>`;
     }

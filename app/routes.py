@@ -255,14 +255,35 @@ def api_polls() -> Response:
     if len(parties) > 10:
         return make_response(jsonify({"error": "max 10 parties per poll"}), 400)
 
+    role_emoji = {"tank": "🛡️", "healer": "💚", "dps": "⚔️"}
+
+    embed_fields = []
+    for i, party in enumerate(parties):
+        members = party.get("members", [])
+        job_strs = [m["job"] for m in members]
+        name_lines = [f"{role_emoji.get(m['role'], '▪')} **{m['name']}** — {m['job']}" for m in members]
+        embed_fields.append({
+            "name": f"Party {i + 1}  —  Score {party.get('score', '?')}",
+            "value": "\n".join(name_lines),
+            "inline": True,
+        })
+
+    embed = {
+        "title": "Party Composition Vote",
+        "color": 0x4a9eff,
+        "fields": embed_fields,
+    }
+
     answers = []
     for i, party in enumerate(parties):
-        job_strs = [m["job"] for m in party["members"]]
+        job_strs = [m["job"] for m in party.get("members", [])]
+        score = party.get("score", "?")
         answers.append({
-            "poll_media": {"text": f"Party {i + 1}: {' / '.join(job_strs)}"},
+            "poll_media": {"text": f"Party {i + 1} [Score {score}] — {' / '.join(job_strs)}"},
         })
 
     payload = {
+        "embeds": [embed],
         "poll": {
             "question": {"text": "Which party composition?"},
             "answers": answers,
