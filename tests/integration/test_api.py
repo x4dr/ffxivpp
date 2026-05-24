@@ -1,6 +1,7 @@
 import pytest
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # Add project root to sys.path
 sys.path.append(str(Path(__file__).parent.parent.parent.resolve()))
@@ -13,7 +14,6 @@ def app():
     config_override = {
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
-        "BYPASS_AUTH": "1",
         "GUILD_ID": "298197955951984640",
     }
     app = create_app(config_override)
@@ -24,17 +24,22 @@ def app():
 @pytest.fixture
 def client(app):
     """A test client for the app."""
-    return app.test_client()
+    # Patch get_discord to return a mock authorized user
+    with patch("app.auth.get_discord") as mock_get_discord:
+        discord = MagicMock()
+        discord.authorized = True
+        discord.fetch_user.return_value.id = "12345"
+        mock_get_discord.return_value = discord
+        
+        # Patch bot_api to simulate guild owner
+        with patch("app.auth._bot_api") as mock_bot_api:
+            mock_bot_api.return_value = {"owner_id": "12345"}
+            
+            yield app.test_client()
+
 
 def test_party_switching_api(client):
     # Test switching party
-    # Bypass auth via environment for this test case specifically if needed,
-    # or ensure setup matches requirements.
-    # The error 403 suggests check_access() is returning False.
-    # Ensure bypass is actually working in the test context.
-    import os
-    os.environ["BYPASS_AUTH"] = "1"
-    
     response = client.post("/api/parties/switch", json={"name": "NewParty"})
     assert response.status_code == 200
     
@@ -43,8 +48,6 @@ def test_party_switching_api(client):
     assert active_party_name() == "NewParty"
 
 def test_add_person_api(client):
-    import os
-    os.environ["BYPASS_AUTH"] = "1"
     
     # We must add the person to the Person table first because of foreign keys
     from app.db import Session, PersonModel
@@ -60,8 +63,6 @@ def test_add_person_api(client):
     assert any(p["name"] == "NewPerson" for p in people)
 
 def test_save_constraints_api(client):
-    import os
-    os.environ["BYPASS_AUTH"] = "1"
     
     # Test saving constraints
     data = {

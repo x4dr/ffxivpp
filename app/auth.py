@@ -32,7 +32,7 @@ bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 
 def get_discord() -> DiscordOAuth2Session:
-    if os.environ.get("BYPASS_AUTH") == "1":
+    if os.environ.get("TEST_MOCK_AUTH") == "1":
         class MockUser:
             id = "12345"
         class MockDiscord:
@@ -58,11 +58,6 @@ def _bot_token() -> str | None:
 
 
 def _bot_api(method: str, path: str, json: dict[str, Any] | None = None) -> dict[str, Any] | None:
-    if os.environ.get("BYPASS_AUTH") == "1":
-        if "members" in path:
-            return {"roles": ["123"]} # Mock roles
-        return {"owner_id": "12345"} # Mock owner
-    
     token = _bot_token()
     if not token:
         return None
