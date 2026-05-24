@@ -816,10 +816,10 @@ async function init() {
   } else {
     await fetchParties();
     await Promise.all([fetchPeople(), fetchConstraints(), fetchExclusions(), fetchPool()]);
+    computeParties();
   }
 
   await fetchChannels();
-  computeParties();
 }
 
 init();

@@ -17,10 +17,12 @@ def test_compute_parties_stream() -> None:
     # Check for at least one complete event
     assert any(event_type == "complete" for event_type, _ in stream)
     
-    # Verify the complete event has results
+    # Verify the complete event has parties and found count
     complete_event = next(data for event_type, data in stream if event_type == "complete")
-    assert "results" in complete_event
-    assert len(complete_event["results"]) == 1
+    assert "found" in complete_event
+    assert complete_event["found"] == 1
+    assert "parties" in complete_event
+    assert len(complete_event["parties"]) == 1
 
 
 def test_one_exact_match() -> None:

@@ -168,4 +168,8 @@ def compute_parties_stream(
 
     yield from dfs(0, [])
     results.sort(key=lambda r: len(r), reverse=True)
-    yield ("complete", {"results": results})
+    wrapped = [
+        {"members": party, "score": len(party)}
+        for party in results
+    ]
+    yield ("complete", {"found": len(results), "parties": wrapped})
