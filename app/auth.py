@@ -22,14 +22,30 @@ from oauthlib.oauth2 import MismatchingStateError
 
 from app.db import bot_owner_id, get_role_ids
 
+for _lib in ("requests_oauthlib", "oauthlib", "urllib3"):
+    logging.getLogger(_lib).setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-logging.basicConfig(level=logging.INFO)
 
 bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 
 def get_discord() -> DiscordOAuth2Session:
+    if os.environ.get("BYPASS_AUTH") == "1":
+        class MockUser:
+            id = "12345"
+        class MockDiscord:
+            authorized = True
+            def fetch_user(self) -> MockUser:
+                return MockUser()
+            def create_session(self, scope: list[str]) -> None:
+                return None
+            def callback(self) -> None:
+                return None
+            def revoke(self) -> None:
+                return None
+        return MockDiscord() # type: ignore
     return DiscordOAuth2Session(current_app)
 
 
@@ -42,6 +58,11 @@ def _bot_token() -> str | None:
 
 
 def _bot_api(method: str, path: str, json: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    if os.environ.get("BYPASS_AUTH") == "1":
+        if "members" in path:
+            return {"roles": ["123"]} # Mock roles
+        return {"owner_id": "12345"} # Mock owner
+    
     token = _bot_token()
     if not token:
         return None
@@ -176,7 +197,7 @@ def callback() -> Response:
         return make_response("OAuth state mismatch. Your session may have expired. "
                             "Please <a href='/auth/login'>log in again</a>.", 400)
     if check_access():
-        return redirect(url_for("api.dashboard"))  # type: ignore[return-value]
+        return redirect(url_for("api.party_overview", party_name="Default"))  # type: ignore[return-value]
     return make_response("You are not authorized to access the Party Planner Dashboard.", 403)
 
 

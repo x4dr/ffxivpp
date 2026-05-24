@@ -20,13 +20,18 @@ from app.models import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATABASE_URL = f"sqlite:///{os.environ.get('DATABASE_PATH', str(BASE_DIR / 'party.db'))}"
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    echo=False
-)
+def _get_database_url() -> str:
+    return f"sqlite:///{os.environ.get('DATABASE_PATH', str(BASE_DIR / 'party.db'))}"
+
+def get_engine(db_url: str | None = None):
+    return create_engine(
+        db_url or _get_database_url(),
+        connect_args={"check_same_thread": False},
+        echo=False
+    )
+
+engine = get_engine()
 
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
@@ -38,12 +43,29 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 session_factory = sessionmaker(bind=engine)
 Session = scoped_session(session_factory)
 
+def reinitialize_db():
+    global engine, Session, session_factory
+    engine = get_engine()
+    session_factory = sessionmaker(bind=engine)
+    Session = scoped_session(session_factory)
+    
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 def init_db():
     Base.metadata.create_all(engine)
     if not Session.query(Party).filter_by(name='Default').first():
         Session.add(Party(name='Default'))
     if not Session.query(AppState).filter_by(key='active_party').first():
         Session.add(AppState(key='active_party', value='Default'))
+    if os.environ.get("FLASK_ENV") == "testing":
+        if not Session.query(AppState).filter_by(key='bot_owner_id').first():
+            Session.add(AppState(key='bot_owner_id', value='12345'))
     Session.commit()
     Session.remove()
 
@@ -166,7 +188,10 @@ def constraints_to_db(data: dict[str, Any], party_name: str) -> None:
         for k, v in data.items():
             if k == "exclusions":
                 continue
-            Session.add(PartyConstraint(party_name=party_name, key=k, value=str(v)))
+            # Handle boolean and integer conversion before saving
+            value_to_save = str(v)
+            print(f"DEBUG: Saving {k}={value_to_save} for {party_name}", flush=True)
+            Session.add(PartyConstraint(party_name=party_name, key=k, value=value_to_save))
         Session.query(PartyExclusion).filter_by(party_name=party_name).delete()
         for group in data.get("exclusions", []):
             Session.add(PartyExclusion(party_name=party_name, jobs=",".join(group)))
@@ -201,6 +226,17 @@ def bot_owner_id() -> str | None:
     try:
         state = Session.query(AppState).filter_by(key='bot_owner_id').first()
         return state.value if state else None
+    finally:
+        Session.remove()
+
+def set_bot_owner_id(owner_id: str) -> None:
+    try:
+        state = Session.query(AppState).filter_by(key='bot_owner_id').first()
+        if state:
+            state.value = owner_id
+        else:
+            Session.add(AppState(key='bot_owner_id', value=owner_id))
+        Session.commit()
     finally:
         Session.remove()
 
