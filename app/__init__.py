@@ -4,6 +4,9 @@ import logging
 import os
 
 from dotenv import load_dotenv
+
+load_dotenv()
+
 from flask import Flask, request
 from flask_discord import DiscordOAuth2Session  # type: ignore[import-untyped]
 
@@ -11,8 +14,6 @@ from app.db import close_db, init_db
 
 for _lib in ("requests_oauthlib", "oauthlib", "urllib3"):
     logging.getLogger(_lib).setLevel(logging.WARNING)
-
-load_dotenv()
 
 
 def create_app(config_override: dict[str, Any] | None = None) -> Flask:
