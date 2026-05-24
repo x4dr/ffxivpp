@@ -1,42 +1,5 @@
 from __future__ import annotations
 
-import os
-import tempfile
-from unittest.mock import MagicMock, patch
-
-import pytest
-
-from app import create_app
-
-
-@pytest.fixture
-def client():
-    db_fd, db_path = tempfile.mkstemp(suffix=".db")
-    os.environ["DATABASE_PATH"] = db_path
-    
-    # Mock discord authorized state and check_party_access
-    # Patch directly in app.auth since that's where the routes import them from.
-    with patch("app.auth.get_discord") as mock_auth_get_discord, \
-         patch("app.auth.check_party_access", return_value=True), \
-         patch("app.auth.check_access", return_value=True):
-        
-        mock_auth_get_discord.return_value.authorized = True
-        
-        app = create_app()
-        app.config["TESTING"] = True
-        
-        with app.test_client() as c:
-            with app.app_context():
-                from app.db import Base, Session, engine, init_db
-                Base.metadata.drop_all(engine)
-                init_db()
-                yield c
-                Session.remove()
-    
-    os.close(db_fd)
-    os.unlink(db_path)
-    del os.environ["DATABASE_PATH"]
-
 
 def test_jobs_list(client):
     r = client.get("/api/jobs")
@@ -46,13 +9,13 @@ def test_jobs_list(client):
     assert len(data) == 20
 
 
-def test_people_empty(client):
+def test_people_empty(client, auto_auth):
     r = client.get("/api/people")
     assert r.status_code == 200
     assert r.get_json() == []
 
 
-def test_people_post_and_get(client):
+def test_people_post_and_get(client, auto_auth):
     payload = [{"name": "TestUser", "jobs": ["pld", "war"], "discord_id": "123"}]
     r = client.post("/api/people", json=payload)
     assert r.status_code == 200
@@ -66,12 +29,12 @@ def test_people_post_and_get(client):
     assert data[0]["discord_id"] == "123"
 
 
-def test_people_post_invalid(client):
+def test_people_post_invalid(client, auto_auth):
     r = client.post("/api/people", json="not a list")
     assert r.status_code == 400
 
 
-def test_constraints_defaults(client):
+def test_constraints_defaults(client, auto_auth):
     r = client.get("/api/constraints")
     assert r.status_code == 200
     data = r.get_json()
@@ -83,7 +46,7 @@ def test_constraints_defaults(client):
     assert data["max_utility"] == 4
 
 
-def test_constraints_put(client):
+def test_constraints_put(client, auto_auth):
     r = client.put("/api/constraints", json={"std_comp": False, "heal_mix": True, "min_selfish": 2})
     assert r.status_code == 200
 
@@ -94,12 +57,12 @@ def test_constraints_put(client):
     assert data["min_selfish"] == 2
 
 
-def test_compute_no_people(client):
-    r = client.get("/api/compute/stream")
+def test_compute_no_people(client, auto_auth):
+    r = client.get("/api/compute/stream?party_name=Default")
     assert r.status_code == 200
 
 
-def test_compute_with_people(client):
+def test_compute_with_people(client, auto_auth):
     payload = [
         {"name": "A", "jobs": ["pld"]}, {"name": "B", "jobs": ["war"]},
         {"name": "C", "jobs": ["whm"]}, {"name": "D", "jobs": ["sch"]},
@@ -107,11 +70,11 @@ def test_compute_with_people(client):
         {"name": "G", "jobs": ["blm"]}, {"name": "H", "jobs": ["nin"]},
     ]
     client.post("/api/people", json=payload)
-    r = client.get("/api/compute/stream")
+    r = client.get("/api/compute/stream?party_name=Default")
     assert r.status_code == 200
 
 
-def test_index_redirect(client):
-    r = client.get("/")
+def test_index_redirect(client, auto_auth):
+    r = client.get("/", follow_redirects=True)
     assert r.status_code == 200
-    assert b"Go to Party Planner Dashboard" in r.data
+    assert b"FF14 Party Planner Dashboard" in r.data

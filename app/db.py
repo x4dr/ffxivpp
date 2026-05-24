@@ -2,59 +2,92 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, cast
-from sqlalchemy import create_engine, event, select, delete
-from sqlalchemy.orm import sessionmaker, scoped_session, joinedload
+from typing import Any
+
+from sqlalchemy import Engine, create_engine, event
+from sqlalchemy.orm import joinedload, scoped_session, sessionmaker
+
 from app.models import (
+    AdminRole,
+    AppState,
     Base,
+    CharacterCache,
+    LodestoneLink,
     Party,
-    PersonModel,
-    PartyPerson,
     PartyConstraint,
     PartyExclusion,
-    AppState,
-    AdminRole,
-    LodestoneLink,
-    CharacterCache,
+    PartyPerson,
+    PersonModel,
     ScraperTask,
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+_engine_override: Engine | None = None
+
+
 def _get_database_url() -> str:
-    return f"sqlite:///{os.environ.get('DATABASE_PATH', str(BASE_DIR / 'party.db'))}"
+    db_path = os.environ.get('DATABASE_PATH')
+    if not db_path:
+        raise RuntimeError("DATABASE_PATH environment variable is not set!")
+    return f"sqlite:///{db_path}"
 
-def get_engine(db_url: str | None = None):
-    return create_engine(
-        db_url or _get_database_url(),
-        connect_args={"check_same_thread": False},
-        echo=False
-    )
 
-engine = get_engine()
-
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_connection, connection_record):
+def _apply_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.close()
 
+
+def _create_engine(url: str) -> Engine:
+    e = create_engine(url, connect_args={"check_same_thread": False}, echo=False)
+    event.listen(e, "connect", _apply_sqlite_pragma)
+    return e
+
+
+def get_engine() -> Engine:
+    if _engine_override is not None:
+        return _engine_override
+    return _create_engine(_get_database_url())
+
+
+def set_engine_for_tests(db_url: str) -> None:
+    """Replace the global engine with a test database.
+
+    Creates a new engine from *db_url*, disposes the previous engine,
+    and rebinds the session factory so all subsequent ``Session`` usage
+    targets the test database.  Call ``reset_engine()`` in teardown to
+    restore the production database.
+    """
+    global _engine_override
+    if _engine_override is not None:
+        _engine_override.dispose()
+    _engine_override = _create_engine(db_url)
+    reinitialize_db()
+
+
+def reset_engine() -> None:
+    """Restore the production engine after tests."""
+    global _engine_override
+    if _engine_override is not None:
+        _engine_override.dispose()
+    _engine_override = None
+    reinitialize_db()
+
+
+engine = get_engine()
+
 session_factory = sessionmaker(bind=engine)
 Session = scoped_session(session_factory)
 
-def reinitialize_db():
+
+def reinitialize_db() -> None:
     global engine, Session, session_factory
+    engine.dispose()
     engine = get_engine()
     session_factory = sessionmaker(bind=engine)
     Session = scoped_session(session_factory)
-    
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, connection_record):
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
 
 
 def init_db():
@@ -175,7 +208,7 @@ def constraints_from_db(party_name: str) -> dict[str, Any]:
             elif val == "False": val = False
             elif val.isdigit(): val = int(val)
             out[c.key] = val
-            
+
         excl = Session.query(PartyExclusion).filter_by(party_name=party_name).all()
         out["exclusions"] = [e.jobs.split(",") for e in excl]
         return out
