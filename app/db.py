@@ -109,13 +109,18 @@ def close_db(e: Any = None) -> None:
 
 def people_from_db(party_name: str) -> list[dict[str, Any]]:
     try:
-        people = Session.query(PersonModel).join(PartyPerson).filter(PartyPerson.party_name == party_name).order_by(PersonModel.name).all()
+        people = (Session.query(PersonModel)
+                  .options(joinedload(PersonModel.lodestone))
+                  .join(PartyPerson)
+                  .filter(PartyPerson.party_name == party_name)
+                  .order_by(PersonModel.name).all())
         return [
             {
                 "id": p.id,
                 "name": p.name,
                 "jobs": [j for j in (p.jobs or "").split(",") if j],
                 "discord_id": p.discord_id,
+                "has_lodestone": p.lodestone is not None,
             }
             for p in people
         ]
@@ -140,13 +145,16 @@ def people_to_db(people_data: list[dict[str, Any]], party_name: str) -> None:
 
 def people_pool() -> list[dict[str, Any]]:
     try:
-        people = Session.query(PersonModel).order_by(PersonModel.name).all()
+        people = (Session.query(PersonModel)
+                  .options(joinedload(PersonModel.lodestone))
+                  .order_by(PersonModel.name).all())
         return [
             {
                 "id": p.id,
                 "name": p.name,
                 "jobs": [j for j in (p.jobs or "").split(",") if j],
                 "discord_id": p.discord_id,
+                "has_lodestone": p.lodestone is not None,
             }
             for p in people
         ]

@@ -298,7 +298,7 @@ async function toggleName(i, isLodestone) {
         const r = await fetch(`/api/lodestone/${p.id}`);
         if (r.ok) {
           const data = await r.json();
-          p.lodestone_name = data.character_name;
+          p.lodestone_name = data.character_name || '[missing]';
           p.original_name = p.original_name || p.name; // Keep the original name
           p.name = p.lodestone_name;
           p.activeNameType = 'lodestone';
