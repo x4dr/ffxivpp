@@ -20,6 +20,7 @@ fi
 echo "Starting bot..."
 # Clear log before starting
 > bot.log
+export DATABASE_PATH="party.db"
 nohup /home/maric/PycharmProjects/ffxivpp/.venv/bin/python3 bot.py >> bot.log 2>&1 &
 
 echo "Bot started. Logs in bot.log"
