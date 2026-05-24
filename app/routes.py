@@ -14,6 +14,9 @@ from flask import (
     request,
     send_from_directory,
     stream_with_context,
+    redirect,
+    url_for,
+    current_app,
 )
 
 from app.auth import get_discord, require_admin, require_party_member, check_access, _bot_api, _guild_id
@@ -51,8 +54,9 @@ def api_me() -> Response:
     user = discord_obj.fetch_user()
     user_id = str(user.id)
     guild_id = _guild_id()
-    name = user._payload.get("global_name") or user.name
-
+    # Use fallback if _payload is missing (e.g. in test mode)
+    name = getattr(user, "_payload", {}).get("global_name") or getattr(user, "name", "Unknown")
+    
     if guild_id:
         member = _bot_api("GET", f"/guilds/{guild_id}/members/{user_id}")
         if member:
@@ -63,7 +67,7 @@ def api_me() -> Response:
             )
 
     return jsonify(
-        {"id": user_id, "name": name, "avatar": user.avatar_url, "is_admin": check_access()}
+        {"id": user_id, "name": name, "avatar": getattr(user, "avatar_url", ""), "is_admin": check_access()}
     )
 
 
@@ -95,10 +99,19 @@ def api_constraints(party_name: str) -> Response:
     if not check_access():
         return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
+    
+    current_app.logger.info(f"DEBUG: api_constraints party_name={party_name}, data={data}")
+    
     if not isinstance(data, dict):
+        current_app.logger.error("Data is not a dict")
         return make_response(jsonify({"error": "expected object"}), 400)
-    constraints_to_db(data, party_name)
-    return jsonify({"ok": True})
+    
+    try:
+        constraints_to_db(data, party_name)
+        return jsonify({"ok": True})
+    except Exception as e:
+        current_app.logger.exception("Error in constraints_to_db")
+        return make_response(jsonify({"error": str(e)}), 500)
 
 
 @bp.route("/api/exclusions", methods=["GET", "PUT"])
@@ -346,24 +359,18 @@ def api_channels() -> Response:
     return jsonify(channels)
 
 
-@bp.route("/dashboard")
-@require_admin
-def dashboard() -> Response:
+@bp.route("/party/<party_name>")
+@require_party_member
+def party_overview(party_name: str) -> Response:
     return send_from_directory(str(STATIC_DIR), "partydashboard.html")
 
 
 @bp.route("/party")
 @bp.route("/party/")
 def party_index() -> Response:
-    return send_from_directory(str(STATIC_DIR), "partydashboard.html")
-
-
-@bp.route("/party/<party_name>")
-@require_party_member
-def party_dashboard(party_name: str) -> Response:
-    return send_from_directory(str(STATIC_DIR), "partydashboard.html")
+    return redirect(url_for("api.party_overview", party_name="Default"))
 
 
 @bp.route("/")
 def index() -> Response:
-    return make_response('<a href="/dashboard">Go to Party Planner Dashboard</a>')
+    return redirect(url_for("api.party_overview", party_name="Default"))

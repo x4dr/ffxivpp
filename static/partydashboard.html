@@ -432,12 +432,17 @@ function saveConstraints() {
   for (const el of document.querySelectorAll('[data-id]')) {
     data[el.getAttribute('data-id')] = el.type === 'checkbox' ? el.checked : parseInt(el.value);
   }
-  Promise.all([
-    fetch('/api/constraints', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({...data, party_name: activeParty})}),
-    fetch('/api/exclusions', {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({exclusions: exclusions, party_name: activeParty})}),
-  ]).then(([r1, r2]) => {
-    if (!(r1.ok && r2.ok)) showStatus('Failed to save constraints.', 'err');
-    else setComputeButtonState(true);
+  // Make sure exclusions are passed correctly
+  data.exclusions = exclusions;
+  
+  fetch('/api/constraints', {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({...data, party_name: activeParty})
+  }).then(r => {
+    if (!r.ok) showStatus('Failed to save constraints.', 'err');
+    else {
+        showStatus('Constraints saved', 'ok');
+        setComputeButtonState(true);
+    }
   });
 }
 

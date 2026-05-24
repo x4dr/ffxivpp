@@ -7,6 +7,9 @@ from __future__ import annotations
 
 import logging
 
+for _lib in ("requests_oauthlib", "oauthlib", "urllib3"):
+    logging.getLogger(_lib).setLevel(logging.WARNING)
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
 import asyncio

@@ -1,11 +1,26 @@
 from __future__ import annotations
 
-from app.compute import compute_parties
+from app.compute import compute_parties, compute_parties_stream
 from app.models import Constraints, Person
 
 
 def _p(name: str, *jobs: str) -> Person:
     return Person(name, list(jobs))
+
+
+def test_compute_parties_stream() -> None:
+    people = [_p("A", "pld"), _p("B", "war"), _p("C", "whm"), _p("D", "sch"),
+              _p("E", "mnk"), _p("F", "brd"), _p("G", "blm"), _p("H", "nin")]
+    
+    stream = list(compute_parties_stream(people, Constraints()))
+    
+    # Check for at least one complete event
+    assert any(event_type == "complete" for event_type, _ in stream)
+    
+    # Verify the complete event has results
+    complete_event = next(data for event_type, data in stream if event_type == "complete")
+    assert "results" in complete_event
+    assert len(complete_event["results"]) == 1
 
 
 def test_one_exact_match() -> None:
