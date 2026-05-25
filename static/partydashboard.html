@@ -147,6 +147,10 @@
       <div class="card">
         <div class="card-title">Results</div>
         <div style="text-align:right;margin-bottom:8px;">
+          <label style="font-size:0.85rem;color:#888;margin-right:8px;cursor:pointer;">
+            <input type="checkbox" id="collapse-toggle" checked onchange="updateSelected()">
+            Collapse role duplicates
+          </label>
           <button class="btn btn-secondary" onclick="computeParties()" id="compute-btn" disabled>Compute</button>
         </div>
         <div id="results"><div class="empty-state"><p>Add some people, set constraints, compute.</p></div></div>
@@ -519,7 +523,8 @@ async function computeParties() {
   btn.textContent = 'Computing…';
   c.innerHTML = '<div class="empty-state"><p style="color:#4a9eff;">⏳ Computing…</p></div>';
 
-  const source = new EventSource('/api/compute/stream');
+  const collapse = document.getElementById('collapse-toggle').checked;
+  const source = new EventSource('/api/compute/stream?collapse=' + (collapse ? '1' : '0'));
   let found = 0, explored = 0;
 
   source.addEventListener('progress', (e) => {
@@ -560,11 +565,20 @@ async function computeParties() {
     const total = result.found;
     const distinct = result.distinct;
     const limit = lastParties.length;
+    const collapsing = document.getElementById('collapse-toggle').checked;
     if (!total && !result.error) { c.innerHTML = '<div class="empty-state"><p>No valid combinations.</p></div>'; showPollBar(); return; }
 
-    let countText = `${distinct.toLocaleString()} distinct role compositions (${total.toLocaleString()} raw combinations)`;
-    if (total > limit) {
-      countText = `Showing first ${limit.toLocaleString()} of ${distinct.toLocaleString()} distinct compositions`;
+    let countText;
+    if (collapsing) {
+      countText = `${distinct.toLocaleString()} distinct role compositions (${total.toLocaleString()} raw combinations)`;
+      if (total > limit) {
+        countText = `Showing first ${limit.toLocaleString()} of ${distinct.toLocaleString()} distinct compositions`;
+      }
+    } else {
+      countText = `${total.toLocaleString()} combinations (${distinct.toLocaleString()} distinct role groups)`;
+      if (total > limit) {
+        countText = `Showing first ${limit.toLocaleString()} of ${total.toLocaleString()} combinations`;
+      }
     }
 
     let h = `<div class="results-header">

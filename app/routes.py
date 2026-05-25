@@ -133,6 +133,7 @@ def api_exclusions(party_name: str) -> Response:
 @bp.route("/api/compute/stream")
 @require_party_member
 def api_compute_stream(party_name: str) -> Response:
+    collapse = request.args.get("collapse", "1") == "1"
     raw = people_from_db(party_name)
     if not raw:
         def _noop() -> Generator[str, None, None]:
@@ -159,7 +160,7 @@ def api_compute_stream(party_name: str) -> Response:
         # analyze_constraints is not actually used here
         # Removing the import and call to fix the test failure.
         
-        for event_type, data in compute_parties_stream(people, constraints):
+        for event_type, data in compute_parties_stream(people, constraints, collapse=collapse):
             yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
     return Response(stream_with_context(_generate()), mimetype="text/event-stream")

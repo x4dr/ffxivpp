@@ -129,7 +129,7 @@ _SSEEvent = tuple[str, dict[str, Any]]
 
 
 def compute_parties_stream(
-    people: list[Person], constraints: Constraints,
+    people: list[Person], constraints: Constraints, collapse: bool = True,
 ) -> Generator[_SSEEvent, None, None]:
     results: list[list[dict[str, Any]]] = []
     seen_role_groups: set[frozenset[tuple[str, str]]] = set()
@@ -210,5 +210,15 @@ def compute_parties_stream(
         {"members": party, "score": sum(m.get("priority", 5) for m in party)}
         for party in results
     ]
-    collapsed = collapse_by_role_group(wrapped)
-    yield ("complete", {"found": len(results), "distinct": len(collapsed), "parties": collapsed})
+    if collapse:
+        parties = collapse_by_role_group(wrapped)
+    else:
+        parties = wrapped
+        for party in parties:
+            role_order = {"tank": 0, "healer": 1, "dps": 2}
+            party["members"].sort(
+                key=lambda m: (role_order.get(m.get("role", ""), 99), m.get("name", "")),
+            )
+    yield ("complete", {
+        "found": len(results), "distinct": len(seen_role_groups), "parties": parties,
+    })
