@@ -323,10 +323,8 @@ def api_polls() -> Response:
 
     answers = []
     for i, party in enumerate(parties):
-        job_strs = [m["job"] for m in party.get("members", [])]
-        score = party.get("score", "?")
         answers.append({
-            "poll_media": {"text": f"Party {i + 1} [Score {score}] — {' / '.join(job_strs)}"},
+            "poll_media": {"text": f"Party {i + 1}"},
         })
 
     payload = {
