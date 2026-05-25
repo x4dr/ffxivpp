@@ -102,6 +102,29 @@ def compute_parties(people: list[Person], constraints: Constraints) -> list[list
     return results
 
 
+def collapse_by_role_group(parties: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse parties that share the same (person, role) assignments.
+
+    When the same set of people fill the same roles (regardless of which
+    specific job each plays), only the highest-scoring variant is kept.
+    """
+    role_order = {"tank": 0, "healer": 1, "dps": 2}
+    groups: dict[frozenset[tuple[str, str]], list[dict[str, Any]]] = {}
+    for party in parties:
+        key = frozenset((m["name"], m["role"]) for m in party["members"])
+        groups.setdefault(key, []).append(party)
+
+    collapsed = [max(group, key=lambda p: p["score"]) for group in groups.values()]
+    collapsed.sort(key=lambda p: p["score"], reverse=True)
+
+    for party in collapsed:
+        party["members"].sort(
+            key=lambda m: (role_order.get(m.get("role", ""), 99), m.get("name", "")),
+        )
+
+    return collapsed
+
+
 _SSEEvent = tuple[str, dict[str, Any]]
 
 
@@ -109,6 +132,7 @@ def compute_parties_stream(
     people: list[Person], constraints: Constraints,
 ) -> Generator[_SSEEvent, None, None]:
     results: list[list[dict[str, Any]]] = []
+    seen_role_groups: set[frozenset[tuple[str, str]]] = set()
     t0 = time.monotonic()
     last_report = t0
     explored = 0
@@ -150,17 +174,22 @@ def compute_parties_stream(
         explored += 1
         now = time.monotonic()
         if now - last_report >= 1.0:
-            yield ("progress", {"found": len(results), "explored": explored})
+            yield ("progress", {
+                "found": len(results), "distinct": len(seen_role_groups), "explored": explored,
+            })
             last_report = now
         if idx == len(people):
             if valid(assigned):
-                results.append([
+                party = [
                     asdict(Assignment(
                         name=people[i].name, job=j.name, role=j.role,
                         priority=priorities[i],
                     ))
                     for i, j in enumerate(assigned)
-                ])
+                ]
+                results.append(party)
+                key = frozenset((people[i].name, j.role) for i, j in enumerate(assigned))
+                seen_role_groups.add(key)
             return
         p = people[idx]
         if not p.jobs:
@@ -177,13 +206,9 @@ def compute_parties_stream(
             priorities.pop()
 
     yield from dfs(0, [], [])
-    results.sort(key=lambda r: sum(m.get("priority", 5) for m in r), reverse=True)
-    role_order = {"tank": 0, "healer": 1, "dps": 2}
     wrapped = [
-        {
-            "members": sorted(party, key=lambda m: (role_order.get(m.get("role", ""), 99), m.get("name", ""))),
-            "score": sum(m.get("priority", 5) for m in party),
-        }
+        {"members": party, "score": sum(m.get("priority", 5) for m in party)}
         for party in results
     ]
-    yield ("complete", {"found": len(results), "parties": wrapped})
+    collapsed = collapse_by_role_group(wrapped)
+    yield ("complete", {"found": len(results), "distinct": len(collapsed), "parties": collapsed})

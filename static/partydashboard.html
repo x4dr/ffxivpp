@@ -532,7 +532,7 @@ async function computeParties() {
       const s = d.remaining;
       eta = s >= 60 ? ` ETA ${Math.ceil(s / 60)}m` : ` ETA ${s}s`;
     }
-    c.innerHTML = `<div class="empty-state"><p style="color:#4a9eff;">⏳ ${pct}% — found ${found.toLocaleString()} parties, explored ${explored.toLocaleString()} / ${d.total.toLocaleString()} combos${eta}</p></div>`;
+    c.innerHTML = `<div class="empty-state"><p style="color:#4a9eff;">⏳ ${pct}% — ${d.distinct.toLocaleString()} distinct / ${found.toLocaleString()} raw parties, explored ${explored.toLocaleString()} / ${d.total.toLocaleString()} combos${eta}</p></div>`;
   });
 
   source.addEventListener('error', (e) => {
@@ -558,12 +558,13 @@ async function computeParties() {
 
     lastParties = reorderPartiesByDiversity(result.parties || []);
     const total = result.found;
+    const distinct = result.distinct;
     const limit = lastParties.length;
     if (!total && !result.error) { c.innerHTML = '<div class="empty-state"><p>No valid combinations.</p></div>'; showPollBar(); return; }
 
-    let countText = `${total.toLocaleString()} combinations`;
+    let countText = `${distinct.toLocaleString()} distinct role compositions (${total.toLocaleString()} raw combinations)`;
     if (total > limit) {
-      countText = `Showing first ${limit.toLocaleString()} of ${total.toLocaleString()} combinations`;
+      countText = `Showing first ${limit.toLocaleString()} of ${distinct.toLocaleString()} distinct compositions`;
     }
 
     let h = `<div class="results-header">
