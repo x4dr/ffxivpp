@@ -75,11 +75,11 @@ def compute_parties(people: list[Person], constraints: Constraints) -> list[list
             and c.min_utility <= n_utility <= c.max_utility
         )
 
-    def dfs(idx: int, assigned: list[Job]) -> None:
+    def dfs(idx: int, assigned: list[Job], priorities: list[int]) -> None:
         if idx == len(people):
             if valid(assigned):
                 results.append([
-                    Assignment(name=people[i].name, job=j.name, role=j.role)
+                    Assignment(name=people[i].name, job=j.name, role=j.role, priority=priorities[i])
                     for i, j in enumerate(assigned)
                 ])
             return
@@ -90,11 +90,15 @@ def compute_parties(people: list[Person], constraints: Constraints) -> list[list
             job = JOBS_BY_ID.get(parse_job_id(entry))
             if job is None:
                 continue
+            priority = get_priority(entry)
             assigned.append(job)
-            dfs(idx + 1, assigned)
+            priorities.append(priority)
+            dfs(idx + 1, assigned, priorities)
             assigned.pop()
+            priorities.pop()
 
-    dfs(0, [])
+    dfs(0, [], [])
+    results.sort(key=lambda r: sum(a.priority for a in r), reverse=True)
     return results
 
 
@@ -104,7 +108,7 @@ _SSEEvent = tuple[str, dict[str, Any]]
 def compute_parties_stream(
     people: list[Person], constraints: Constraints,
 ) -> Generator[_SSEEvent, None, None]:
-    results: list[list[Assignment]] = []
+    results: list[list[dict[str, Any]]] = []
     t0 = time.monotonic()
     last_report = t0
     explored = 0
@@ -141,7 +145,7 @@ def compute_parties_stream(
         )
 
     # mypy: ignore the generator type — nested recursive generator
-    def dfs(idx: int, assigned: list[Job]) -> Generator:  # type: ignore[misc]
+    def dfs(idx: int, assigned: list[Job], priorities: list[int]) -> Generator:  # type: ignore[misc]
         nonlocal explored, last_report
         explored += 1
         now = time.monotonic()
@@ -151,7 +155,10 @@ def compute_parties_stream(
         if idx == len(people):
             if valid(assigned):
                 results.append([
-                    asdict(Assignment(name=people[i].name, job=j.name, role=j.role))
+                    asdict(Assignment(
+                        name=people[i].name, job=j.name, role=j.role,
+                        priority=priorities[i],
+                    ))
                     for i, j in enumerate(assigned)
                 ])
             return
@@ -162,14 +169,17 @@ def compute_parties_stream(
             job = JOBS_BY_ID.get(parse_job_id(entry))
             if job is None:
                 continue
+            priority = get_priority(entry)
             assigned.append(job)
-            yield from dfs(idx + 1, assigned)
+            priorities.append(priority)
+            yield from dfs(idx + 1, assigned, priorities)
             assigned.pop()
+            priorities.pop()
 
-    yield from dfs(0, [])
-    results.sort(key=lambda r: len(r), reverse=True)
+    yield from dfs(0, [], [])
+    results.sort(key=lambda r: sum(m.get("priority", 5) for m in r), reverse=True)
     wrapped = [
-        {"members": party, "score": len(party)}
+        {"members": party, "score": sum(m.get("priority", 5) for m in party)}
         for party in results
     ]
     yield ("complete", {"found": len(results), "parties": wrapped})

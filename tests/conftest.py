@@ -7,6 +7,18 @@ import pytest
 # Add project root to sys.path
 sys.path.append(str(Path(__file__).parent.parent.parent.resolve()))
 
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Reorder tests so non-e2e tests run first.
+
+    pytest-flask's ``live_server`` fixture uses ``fork()`` which corrupts the
+    asyncio event loop, causing "Cannot run the event loop while another loop
+    is running" errors in any ``async def`` test collected afterwards.  By
+    moving e2e tests to the end we guarantee that asyncio-based tests (embed,
+    scraper) complete before the event loop is contaminated.
+    """
+    items.sort(key=lambda i: "e2e" in str(i.fspath))
+
 # DATABASE_PATH must be set before any app.db import to prevent a RuntimeError
 # from _get_database_url().  We set it to a harmless path; the real test engine
 # is installed below via set_engine_for_tests("sqlite://") so no file is created.

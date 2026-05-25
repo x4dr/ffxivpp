@@ -1,11 +1,8 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from bot.commands import PartyBot
 
 
-@pytest.mark.asyncio
 async def test_scraper_loop_priority():
     # Setup
     bot = PartyBot()
@@ -38,7 +35,6 @@ async def test_scraper_loop_priority():
         # Check if sleep was 1s (the priority interval)
         assert mock_sleep.call_args_list[0][0][0] == 10
 
-@pytest.mark.asyncio
 async def test_scraper_loop_regular():
     # Setup
     bot = PartyBot()

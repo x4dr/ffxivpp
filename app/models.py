@@ -27,6 +27,7 @@ class Assignment:
     name: str
     job: str
     role: str
+    priority: int = 5
 
 @dataclass
 class Constraints:

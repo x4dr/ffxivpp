@@ -15,7 +15,6 @@ def setup_env():
     del os.environ["BASE_URL"]
 
 
-@pytest.mark.asyncio
 async def test_embed_status_generation():
     # Mock data
     party_name = "TestParty"
@@ -60,7 +59,6 @@ async def test_embed_status_generation():
                 assert "Outdated" not in description and "Low Gear" not in description
 
 
-@pytest.mark.asyncio
 async def test_missing_lodestone_data():
     with patch('app.db.get_party_members') as mock_members, \
          patch('app.db.get_cached_character') as mock_cache, \

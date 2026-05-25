@@ -60,6 +60,7 @@ def _bot_token() -> str | None:
 def _bot_api(method: str, path: str, json: dict[str, Any] | None = None) -> dict[str, Any] | None:
     token = _bot_token()
     if not token:
+        logger.error("_bot_api: No bot token available")
         return None
     r = requests.request(
         method,
@@ -68,7 +69,10 @@ def _bot_api(method: str, path: str, json: dict[str, Any] | None = None) -> dict
         json=json,
         timeout=10,
     )
-    return r.json() if r.status_code == 200 else None
+    if r.status_code not in (200, 201):
+        logger.error("_bot_api %s %s failed: %s - %s", method, path, r.status_code, r.text)
+        return None
+    return r.json()
 
 
 def check_access() -> bool:
