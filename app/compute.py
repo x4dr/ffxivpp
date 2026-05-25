@@ -178,8 +178,12 @@ def compute_parties_stream(
 
     yield from dfs(0, [], [])
     results.sort(key=lambda r: sum(m.get("priority", 5) for m in r), reverse=True)
+    role_order = {"tank": 0, "healer": 1, "dps": 2}
     wrapped = [
-        {"members": party, "score": sum(m.get("priority", 5) for m in party)}
+        {
+            "members": sorted(party, key=lambda m: (role_order.get(m.get("role", ""), 99), m.get("name", ""))),
+            "score": sum(m.get("priority", 5) for m in party),
+        }
         for party in results
     ]
     yield ("complete", {"found": len(results), "parties": wrapped})
