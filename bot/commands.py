@@ -208,23 +208,16 @@ async def on_command_error(
 # ── Helpers ─────────────────────────────────────────────────────────────
 
 
-def _load_person(name: str, discord_id: str | None = None) -> list[dict[str, Any]]:
+def _load_person(discord_id: str) -> list[dict[str, Any]]:
     from app.db import people_pool
 
-    current = people_pool()
-    if discord_id:
-        return [p for p in current if p.get("discord_id") != discord_id]
-    return [p for p in current if p["name"] != name]
+    return [p for p in people_pool() if p.get("discord_id") == discord_id]
 
 
-def _save_person(name: str, jids: list[str], discord_id: str | None = None) -> None:
+def _save_person(name: str, jids: list[str], discord_id: str) -> None:
     from app.db import people_pool, pool_save
 
-    current = people_pool()
-    if discord_id:
-        current = [p for p in current if p.get("discord_id") != discord_id]
-    else:
-        current = [p for p in current if p["name"] != name]
+    current = [p for p in people_pool() if p.get("discord_id") != discord_id]
     entry: dict[str, Any] = {"name": name, "jobs": jids}
     if discord_id:
         entry["discord_id"] = discord_id
@@ -262,10 +255,11 @@ def _build_job_list(jobs: list[str]) -> str:
 
 @client.tree.command(name="setjobs", description="Set your available jobs")
 async def setjobs(interaction: discord.Interaction) -> None:
+    user_id = interaction.user.id
     name = interaction.user.display_name
-    current = _load_person(name)
+    current = _load_person(str(user_id))
     existing = current[0]["jobs"] if current else []
-    view = MyJobsView(name, existing, interaction.user.id)
+    view = MyJobsView(name, existing, user_id)
     await interaction.response.send_message(embed=view.build_embed(), view=view, ephemeral=True)
 
 
@@ -568,8 +562,9 @@ class PersistentPartyView(View):
     @discord.ui.button(label="Set Jobs", style=discord.ButtonStyle.primary, custom_id="party_set_jobs")
     async def set_jobs(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         from bot.commands import MyJobsView, _load_person
+        discord_id = str(interaction.user.id)
         name = interaction.user.display_name
-        current = _load_person(name)
+        current = _load_person(discord_id)
         existing = current[0]["jobs"] if current else []
         view = MyJobsView(name, existing, interaction.user.id)
         await interaction.response.send_message(embed=view.build_embed(), view=view, ephemeral=True)
