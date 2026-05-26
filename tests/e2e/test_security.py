@@ -8,6 +8,7 @@ import time
 import os
 import httpx
 from playwright.sync_api import Page
+from app.db import set_bot_owner_id
 
 
 @pytest.fixture(scope="session")

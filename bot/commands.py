@@ -117,14 +117,23 @@ class PartyBot(discord.Client):
                     is_priority = True
                 else:
                     # Fallback to regular task
+                    link_fetched_at: str | None = None
                     try:
                         link = Session.query(LodestoneLink).order_by(LodestoneLink.fetched_at.asc()).first()
                         lodestone_id = link.lodestone_id if link else None
                         person_id = link.person_id if link else None
+                        if link:
+                            link_fetched_at = link.fetched_at
                     finally:
                         Session.remove()
                     sleep_time = 10
                     is_priority = False
+
+                    # Skip if scraped within the last 3 hours
+                    if link_fetched_at and isinstance(link_fetched_at, str):
+                        fetched = datetime.fromisoformat(link_fetched_at)
+                        if (datetime.now() - fetched).total_seconds() < 10800:
+                            lodestone_id = None
 
                 if lodestone_id:
                     # 2. NETWORK IO: Run without holding any DB lock
@@ -627,7 +636,7 @@ class PersistentPartyView(View):
             elif not char_data:
                 status = "Loading"
             else:
-                fetched_at = datetime.fromisoformat(char_data['fetched_at'])
+                fetched_at = datetime.fromisoformat(char_data['fetched_at']).replace(tzinfo=UTC)
                 now = datetime.now(UTC)
                 days_old = (now - fetched_at).days
                 current_ilvl = char_data.get("avg_ilvl", 0)
