@@ -571,6 +571,7 @@ class PersistentPartyView(View):
 
     @discord.ui.button(label="Move to Bottom", style=discord.ButtonStyle.secondary, custom_id="party_move_bottom")
     async def move_to_bottom(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+        await interaction.response.defer()
         party_name = interaction.message.embeds[0].title.replace("Party: ", "")
 
         logging.info(f"Moving party {party_name} to bottom.")
