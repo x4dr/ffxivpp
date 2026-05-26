@@ -573,40 +573,30 @@ class PersistentPartyView(View):
     async def move_to_bottom(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         await interaction.response.defer()
         party_name = interaction.message.embeds[0].title.replace("Party: ", "")
-
         logging.info(f"Moving party {party_name} to bottom.")
 
-        # Re-render the embed before moving to ensure it's up to date
-        await self.update_embed(interaction.channel, interaction.message)
-
-        # Now repost the message (the 'message' object is still the old one, we need to refresh it if it was edited)
-        # However, update_embed edited it. We need the new version.
-
-        # Actually, update_embed edits the message in place.
-        # So interaction.message should now have the updated embed.
-
-        # Repost
+        embed = await self._build_party_embed(party_name)
         view = PersistentPartyView()
-        new_msg = await interaction.channel.send(embed=interaction.message.embeds[0], view=view)
+        new_msg = await interaction.channel.send(embed=embed, view=view)
+        logging.info(f"Posted new message for {party_name} as {new_msg.id}")
 
-        logging.info(f"Reposted message for party {party_name} as {new_msg.id}")
+        try:
+            await interaction.message.delete()
+        except Exception as e:
+            logging.error(f"Failed to delete old message: {e}")
 
-        # Delete old
-        await interaction.message.delete()
-
-        # Update DB
         try:
             party = Session.query(Party).filter_by(name=party_name).first()
             if party:
                 party.home_channel_id = str(interaction.channel.id)
                 party.home_message_id = str(new_msg.id)
                 Session.commit()
+        except Exception as e:
+            logging.error(f"DB update failed: {e}")
         finally:
             Session.remove()
 
-        logging.info(f"Updated DB for party {party_name} to channel {interaction.channel.id}, message {new_msg.id}")
-
-        await interaction.response.defer()
+        logging.info(f"Moved party {party_name} to bottom.")
 
     def _get_dashboard_url(self, party_name: str) -> str:
         base = os.environ.get("BASE_URL")
@@ -615,27 +605,22 @@ class PersistentPartyView(View):
         # Dashboard is a SPA; we link to the party dashboard
         return f"{base.rstrip('/')}/party/{party_name}"
 
-    async def update_embed(self, channel: discord.TextChannel, message: discord.Message) -> None:
+    async def _build_party_embed(self, party_name: str) -> discord.Embed:
         from app.db import constraints_from_db, get_cached_character, get_party_members
 
-        # We need the party name. Can we extract it from the existing embed?
-        party_name = message.embeds[0].title.replace("Party: ", "")
-
         members = get_party_members(party_name)
-        logging.info(f"Updating embed for party {party_name}, members: {members}")
+        logging.info(f"Building embed for party {party_name}, members: {members}")
         constraints = constraints_from_db(party_name)
         target_ilvl = constraints.get("min_gear_level", 0)
 
-        lines = []
+        lines: list[str] = []
         for m in members:
-            # Fetch cached character data
             char_data = None
             if m['lodestone_id']:
                 char_data = get_cached_character(m['lodestone_id'])
 
             line = f"**{m['name']}**"
 
-            # Status Logic
             status = "Ready"
             if not m['lodestone_id']:
                 status = "No Link"
@@ -661,11 +646,14 @@ class PersistentPartyView(View):
 
             lines.append(line)
 
-        embed = discord.Embed(title=f"Party: {party_name}",
-                              url=self._get_dashboard_url(party_name),
-                              description="\n".join(lines) if lines else "No members.",
-                              color=discord.Color.blue())
+        return discord.Embed(title=f"Party: {party_name}",
+                             url=self._get_dashboard_url(party_name),
+                             description="\n".join(lines) if lines else "No members.",
+                             color=discord.Color.blue())
 
+    async def update_embed(self, channel: discord.TextChannel, message: discord.Message) -> None:
+        party_name = message.embeds[0].title.replace("Party: ", "")
+        embed = await self._build_party_embed(party_name)
         logging.info(f"Editing message for party {party_name} with embed: {embed.description}")
         await message.edit(embed=embed, view=self)
 
