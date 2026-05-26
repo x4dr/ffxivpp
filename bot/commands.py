@@ -166,6 +166,15 @@ class PartyBot(discord.Client):
     async def on_ready(self) -> None:
         print(f"Bot logged in as {self.user}")
         self.add_view(PersistentPartyView())
+
+        # Clear any stale per-guild commands to avoid duplicates
+        for guild in self.guilds:
+            try:
+                self.tree.clear_commands(guild=guild)
+                await self.tree.sync(guild=guild)
+            except Exception:
+                pass
+
         if self.application and self.application.owner:
             owner_id = str(self.application.owner.id)
 
