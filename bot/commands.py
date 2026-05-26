@@ -300,7 +300,7 @@ class RoleSelect(Select):
         opts: list[discord.SelectOption] = []
         for role, label, emoji in ROLES:
             opts.append(discord.SelectOption(label=label, emoji=emoji, value=role))
-        opts.append(discord.SelectOption(label="──────────", value="---", disabled=True))
+        opts.append(discord.SelectOption(label="──────────", value="---"))
         for role, label, emoji in ROLES:
             opts.append(discord.SelectOption(label=f"All {label}s", emoji=emoji, value=f"all_{role}"))
         super().__init__(placeholder="Add a job…", options=opts)
@@ -308,6 +308,8 @@ class RoleSelect(Select):
 
     async def callback(self, interaction: discord.Interaction) -> None:
         val = self.values[0]
+        if val == "---":
+            return
         if val.startswith("all_"):
             role = val.removeprefix("all_")
             for jid in ROLE_JOBS[role]:
