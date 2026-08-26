@@ -61,6 +61,9 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
     from app.voyage_views import bp as voyages_bp
     app.register_blueprint(voyages_bp)
 
+    from app.chest import bp as chest_bp
+    app.register_blueprint(chest_bp)
+
     from app.routes import bp
     app.register_blueprint(bp)
 

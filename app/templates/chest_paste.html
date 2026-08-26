@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Chest stock{% endblock %}
+{% block content %}
+<p><a href="/quests/">← Questboard</a></p>
+<h1>Company chest — manual snapshot</h1>
+<p class="muted">Paste an item list, one per line: <code>Item Name = quantity</code>.
+This records a snapshot and may suggest fulfillment on open quests — nothing is
+marked delivered automatically.</p>
+<div class="card">
+  <textarea id="chest-text" rows="10" style="width:100%;background:#23233a;color:#d8d8e0;border:1px solid #38385a;border-radius:6px"
+    placeholder="Popcorn = 120&#10;Fire Clusters = 999"></textarea><br><br>
+  <button onclick="submitChest()">Submit snapshot</button>
+  <span class="muted" id="chest-msg"></span>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function parseLines(text) {
+  const items = [];
+  for (const line of text.split('\n')) {
+    const m = line.match(/^\s*(.+?)\s*=\s*(\d+)\s*$/);
+    if (m) items.push({name: m[1], qty: parseInt(m[2], 10)});
+  }
+  return items;
+}
+async function submitChest() {
+  const items = parseLines(document.getElementById('chest-text').value);
+  if (!items.length) { document.getElementById('chest-msg').textContent = 'Nothing parsed.'; return; }
+  const data = await postJson('/chest/api/ingest', {source: 'manual', items});
+  if (data) document.getElementById('chest-msg').textContent =
+    `Snapshot #${data.snapshot_id} stored (${items.length} lines).`;
+}
+</script>
+{% endblock %}
