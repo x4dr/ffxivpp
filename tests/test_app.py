@@ -74,7 +74,8 @@ def test_compute_with_people(client, auto_auth):
     assert r.status_code == 200
 
 
-def test_index_redirect(client, auto_auth):
-    r = client.get("/", follow_redirects=True)
+def test_index_overview(client):
+    # "/" no longer redirects to the party dashboard; it serves the overview page.
+    r = client.get("/")
     assert r.status_code == 200
-    assert b"FF14 Party Planner Dashboard" in r.data
+    assert b"ffxivpp" in r.data

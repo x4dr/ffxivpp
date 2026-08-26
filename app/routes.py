@@ -11,6 +11,7 @@ from flask import (
     jsonify,
     make_response,
     redirect,
+    render_template,
     request,
     send_from_directory,
     stream_with_context,
@@ -46,6 +47,8 @@ from app.db import (
     update_party_home_channel,
 )
 from app.models import Constraints, Person
+from core import questdb
+from core.voyages import VoyageDataError, load_pack
 
 bp = Blueprint("api", __name__)
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -386,4 +389,34 @@ def party_index() -> Response:
 
 @bp.route("/")
 def index() -> Response:
-    return make_response(redirect(url_for("api.party_overview", party_name="Default")))
+    """Home page: a card per surface with cheap live counts (read-only).
+
+    Counts are best-effort: the home page must render even when a surface's
+    tables/pack are unavailable (e.g. in-memory test engines, fresh DBs).
+    """
+    try:
+        open_quests = len(questdb.list_quests([questdb.QUEST_OPEN]))
+    except Exception:  # noqa: BLE001 — any DB-level failure degrades to None
+        open_quests = None
+    try:
+        parties = len(get_parties_details())
+    except Exception:  # noqa: BLE001
+        parties = None
+    voyage_routes: int | None = None
+    latest_route: str | None = None
+    try:
+        pack = load_pack()
+        pack_routes = pack.get("routes", [])
+        voyage_routes = len(pack_routes)
+        latest_route = pack_routes[0]["name"] if pack_routes else None
+    except (VoyageDataError, OSError, ValueError):
+        pass  # VOYAGE_DATA_DIR unset or broken data — degrade to "unavailable"
+    return make_response(
+        render_template(
+            "overview.html",
+            open_quests=open_quests,
+            parties=parties,
+            voyage_routes=voyage_routes,
+            latest_route=latest_route,
+        )
+    )
