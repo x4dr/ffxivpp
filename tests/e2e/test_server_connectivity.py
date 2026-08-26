@@ -1,6 +1,5 @@
-import pytest
 import requests
-import time
+
 
 def test_live_server_connectivity(live_server):
     print(f"DEBUG: Testing connectivity to {live_server.url()}", flush=True)

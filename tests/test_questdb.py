@@ -109,7 +109,8 @@ class TestPledgesAndTurnins:
 
     def test_substitution_end_to_end(self, quest_id: int) -> None:
         """Full integration of tree + db: turning in all wheels zeroes logs."""
-        from core.quests import build_tree as bt, assign_node_ids as ani
+        from core.quests import assign_node_ids as ani
+        from core.quests import build_tree as bt
 
         q = questdb.get_quest(quest_id)
         assert q is not None

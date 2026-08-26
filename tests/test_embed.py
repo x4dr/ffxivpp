@@ -1,5 +1,5 @@
-from datetime import UTC, datetime, timedelta
 import os
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
@@ -77,7 +77,7 @@ async def test_missing_lodestone_data():
         await view.update_embed(channel, message)
 
         embed = message.edit.call_args[1]['embed']
-        # The code logic for missing data might be different than the test expects. 
+        # The code logic for missing data might be different than the test expects.
         # Check what the actual code does.
         # Actually, if char_data is None, it doesn't add "Loading" or "[no data]" specifically in the code I read.
         # It just skips the status check.

@@ -1,7 +1,7 @@
 from app.db import (
+    PartyPerson,
     PersonModel,
     Session,
-    PartyPerson,
     active_party_name,
     constraints_from_db,
     people_from_db,
