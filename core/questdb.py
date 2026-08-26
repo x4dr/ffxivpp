@@ -88,6 +88,9 @@ class ReminderOptIn(Base):
     frequency: Mapped[str] = mapped_column(String(10), nullable=False)  # daily|weekly
     hour_utc: Mapped[int] = mapped_column(Integer, nullable=False)
     minute_utc: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    weekday_utc: Mapped[int] = mapped_column(
+        Integer, default=-1, nullable=False
+    )  # 0=Mon..6=Sun, -1=daily
 
 
 class ItemCatalog(Base):
@@ -374,12 +377,19 @@ def quest_events(quest_id: int) -> list[dict[str, Any]]:
 
 
 def upsert_reminder_optin(
-    quest_id: int, person_id: str, frequency: str, hour_utc: int, minute_utc: int = 0
+    quest_id: int,
+    person_id: str,
+    frequency: str,
+    hour_utc: int,
+    minute_utc: int = 0,
+    weekday_utc: int = -1,
 ) -> None:
     if frequency not in ("daily", "weekly"):
         raise ValueError(f"invalid reminder frequency {frequency!r}")
     if not 0 <= hour_utc <= 23 or not 0 <= minute_utc <= 59:
         raise ValueError("reminder time out of range")
+    if frequency == "weekly" and not 0 <= weekday_utc <= 6:
+        raise ValueError("weekly reminders need weekday_utc 0-6 (Mon..Sun)")
     try:
         row = (
             Session.query(ReminderOptIn)
@@ -390,6 +400,7 @@ def upsert_reminder_optin(
             row.frequency = frequency
             row.hour_utc = hour_utc
             row.minute_utc = minute_utc
+            row.weekday_utc = weekday_utc if frequency == "weekly" else -1
         else:
             Session.add(
                 ReminderOptIn(
@@ -398,6 +409,7 @@ def upsert_reminder_optin(
                     frequency=frequency,
                     hour_utc=hour_utc,
                     minute_utc=minute_utc,
+                    weekday_utc=weekday_utc if frequency == "weekly" else -1,
                 )
             )
         Session.commit()
@@ -408,17 +420,21 @@ def upsert_reminder_optin(
 def due_reminders(now_utc: datetime | None = None) -> list[dict[str, Any]]:
     """Reminder opt-ins whose chosen time matches now (minute precision)."""
     now = now_utc or datetime.now(UTC)
-    window_start = (now - timedelta(minutes=1)).time().replace(second=0, microsecond=0)
     try:
         rows = Session.query(ReminderOptIn).filter_by(hour_utc=now.hour).all()
-        return [
-            {
-                "quest_id": r.quest_id,
-                "person_id": r.person_id,
-                "frequency": r.frequency,
-            }
-            for r in rows
-            if r.minute_utc == now.minute or r.minute_utc == window_start.minute
-        ]
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            if r.minute_utc != now.minute:
+                continue
+            if r.frequency == "weekly" and r.weekday_utc != now.weekday():
+                continue
+            out.append(
+                {
+                    "quest_id": r.quest_id,
+                    "person_id": r.person_id,
+                    "frequency": r.frequency,
+                }
+            )
+        return out
     finally:
         Session.remove()
