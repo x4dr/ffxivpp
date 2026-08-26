@@ -238,11 +238,38 @@ def set_quest_status(quest_id: int, status: str, actor_id: str) -> bool:
         Session.remove()
 
 
+def _stored_tree_node_ids(tree_data: dict[str, Any]) -> set[str]:
+    """Recompute positional node ids exactly like core.quests.assign_node_ids."""
+    ids: set[str] = set()
+    counter = 0
+
+    def walk(node: dict[str, Any]) -> None:
+        nonlocal counter
+        ids.add(f"n{counter}")
+        counter += 1
+        for child in node.get("children", []):
+            walk(child)
+
+    walk(tree_data)
+    return ids
+
+
 def add_pledge(quest_id: int, node_id: str, person_id: str, qty: int, actor_id: str) -> int:
-    """Add pledge rows; returns the pledge id. Amounts stored verbatim."""
+    """Add pledge rows; returns the pledge id. Amounts stored verbatim.
+
+    Raises KeyError when the quest or *node_id* does not exist in its tree.
+    """
     if qty < 1:
         raise ValueError("pledge quantity must be >= 1")
     try:
+        q = Session.query(Quest).filter_by(id=quest_id).first()
+        if not q:
+            raise KeyError(f"quest {quest_id} not found")
+        import json
+
+        valid_ids = _stored_tree_node_ids(json.loads(q.tree_json))
+        if node_id not in valid_ids:
+            raise KeyError(f"node {node_id!r} not in quest tree")
         pledge = QuestPledge(
             quest_id=quest_id,
             node_id=node_id,
@@ -253,9 +280,7 @@ def add_pledge(quest_id: int, node_id: str, person_id: str, qty: int, actor_id: 
         Session.add(pledge)
         Session.flush()
         pid = int(pledge.id)
-        q = Session.query(Quest).filter_by(id=quest_id).first()
-        if q:
-            _touch(q)
+        _touch(q)
         log_event(quest_id, "pledge_added", actor_id, node=node_id, qty=qty, pledge_id=pid)
         return pid
     finally:

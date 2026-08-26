@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}{{ quest.title }}{% endblock %}
+{% block content %}
+<p><a href="/quests/">← Questboard</a></p>
+<h1>{{ quest.title }} {% if quest.status != 'open' %}<span class="chip {{ 'done' if quest.status == 'fulfilled' }}">{{ quest.status }}</span>{% endif %}</h1>
+{% if quest.description %}<p>{{ quest.description }}</p>{% endif %}
+<p class="muted">by {{ quest.created_by }} · created {{ quest.created_at[:16] }}
+  {%- if quest.deadline %} · <strong>due {{ quest.deadline }}</strong>{% endif %}</p>
+
+<div class="card">
+  <h3 style="margin-top:0">Requirement tree</h3>
+  <ul class="tree">
+    {% for s in statuses recursive %}
+    <li>
+      <span class="chip">{{ s.name }}</span> x{{ s.required }}
+      {% if s.quality == 'hq' %}<span class="chip hq">HQ</span>{% endif %}
+      {% if s.fulfilled %}<span class="chip done">done</span>
+      {% elif s.pledged > 0 %}<span class="chip">{{ s.pledged }} pledged</span>{% endif %}
+      {% if not s.fulfilled %}
+        <button onclick="pledge('{{ s.node_id }}')">Pledge</button>
+      {% endif %}
+      <div class="bar" style="max-width:16rem"><div style="width:{{ ((s.turned_in / s.required) * 100) | round | int }}%"></div></div>
+      {% if s.children is defined and s.children %}<ul class="tree">{{ loop(s.children) }}</ul>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+
+{% if my_pledges %}
+<div class="card">
+  <h3 style="margin-top:0">My pledges</h3>
+  {% for p in my_pledges %}
+  <div>
+    <span class="chip">{{ p.node_id }}</span> pledged {{ p.qty }},
+    turned in {{ p.turned_qty }}
+    {% if p.turned_qty < p.qty %}
+    <button onclick="turnin({{ p.pledge_id }}, {{ p.qty - p.turned_qty }})">Mark turned in</button>
+    <button class="danger" onclick="withdraw({{ p.pledge_id }})">Withdraw</button>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if is_officer and quest.status == 'open' %}
+<div class="card">
+  <h3 style="margin-top:0">Officer actions</h3>
+  <button class="danger" onclick="setStatus('cancelled')">Cancel quest</button>
+  <button onclick="setStatus('fulfilled')">Mark fulfilled</button>
+</div>
+{% endif %}
+
+<h3>History</h3>
+{% for e in events %}
+<p class="muted">{{ e.created_at[:19] }} — {{ e.kind }} ({{ e.actor_id }})
+  {%- if e.payload.qty is defined %} x{{ e.payload.qty }}{% endif %}</p>
+{% endfor %}
+{% endblock %}
+{% block scripts %}
+<script>
+const qid = {{ quest.id }};
+async function pledge(nodeId) {
+  const qty = prompt('How many do you pledge?');
+  if (!qty) return;
+  const ok = await postJson(`/quests/api/${qid}/pledge`, {node_id: nodeId, qty: parseInt(qty, 10)});
+  if (ok) location.reload();
+}
+async function turnin(pledgeId, remaining) {
+  const qty = prompt(`Turn in how many? (max ${remaining})`, String(remaining));
+  if (!qty) return;
+  const ok = await postJson(`/quests/api/${qid}/turnin`, {pledge_id: pledgeId, qty: parseInt(qty, 10)});
+  if (ok) location.reload();
+}
+async function withdraw(pledgeId) {
+  if (!confirm('Withdraw this pledge?')) return;
+  await postJson(`/quests/api/pledge/${pledgeId}/withdraw`, {});
+  location.reload();
+}
+async function setStatus(status) {
+  const ok = await postJson(`/quests/api/${qid}/status`, {status});
+  if (ok) location.reload();
+}
+</script>
+{% endblock %}

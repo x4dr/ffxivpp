@@ -141,3 +141,21 @@ def auto_auth():
         mock_get_discord.return_value = discord
         mock_bot_api.return_value = {"owner_id": "12345"}
         yield
+
+
+@pytest.fixture
+def qb_auth(monkeypatch: pytest.MonkeyPatch):
+    """Questboard auth: TEST_MOCK_AUTH user 12345 is bot owner (officer)."""
+    monkeypatch.setenv("TEST_MOCK_AUTH", "1")
+    from unittest.mock import MagicMock, patch
+
+    with (
+        patch("app.auth.get_discord") as mock_get_discord,
+        patch("app.db.bot_owner_id") as mock_owner,
+    ):
+        discord = MagicMock()
+        discord.authorized = True
+        discord.fetch_user.return_value.id = "12345"
+        mock_get_discord.return_value = discord
+        mock_owner.return_value = "12345"
+        yield

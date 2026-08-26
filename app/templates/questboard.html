@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Board{% endblock %}
+{% block content %}
+<h1>Questboard</h1>
+<p class="muted">Open quests — pledge materials or finished items. Click a quest for the full tree.</p>
+
+<div class="card">
+  <h3 style="margin-top:0">New quest</h3>
+  <form id="new-quest" onsubmit="return false;">
+    <input id="nq-title" placeholder="Title (e.g. Raid food for Tuesday)" style="width:22rem"><br><br>
+    <input id="nq-item" placeholder="Item name (wiki lookup)" style="width:14rem">
+    <input id="nq-qty" type="number" min="1" value="1" style="width:5rem" title="Quantity">
+    <select id="nq-quality" title="Quality">
+      <option value="any">NQ or HQ</option>
+      <option value="hq">HQ required</option>
+    </select>
+    <input id="nq-deadline" type="date" title="Deadline (optional)">
+    <button onclick="createQuest()">Create</button>
+    <span class="muted" id="nq-msg"></span>
+  </form>
+</div>
+
+<div id="quest-list">
+{% for q in quests %}
+  <div class="card">
+    <h3><a href="/quests/{{ q.id }}">{{ q.title }}</a></h3>
+    <span class="muted">by {{ q.created_by }} · updated {{ q.updated_at[:16] }}
+      {%- if q.deadline %} · due {{ q.deadline }}{% endif %}</span><br>
+    <span class="chip">{{ q.nodes_fulfilled }}/{{ q.nodes_total }} nodes done</span>
+    {% for s in q.shopping_list %}<span class="chip {{ 'hq' if s.quality == 'hq' }}">{{ s.name }} x{{ s.outstanding }}</span>{% endfor %}
+  </div>
+{% else %}
+  <p class="muted">No open quests.</p>
+{% endfor %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function createQuest() {
+  const data = await postJson('/quests/api/create', {
+    title: document.getElementById('nq-title').value,
+    item_name: document.getElementById('nq-item').value,
+    qty: parseInt(document.getElementById('nq-qty').value || '1', 10),
+    quality: document.getElementById('nq-quality').value,
+    deadline: document.getElementById('nq-deadline').value || null
+  });
+  if (data) location.href = '/quests/' + data.quest_id;
+}
+</script>
+{% endblock %}

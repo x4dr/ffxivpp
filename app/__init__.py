@@ -55,6 +55,9 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp)
 
+    from app.questboard import bp as questboard_bp
+    app.register_blueprint(questboard_bp)
+
     from app.routes import bp
     app.register_blueprint(bp)
 
