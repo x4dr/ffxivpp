@@ -24,8 +24,8 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 # is installed below via set_engine_for_tests("sqlite://") so no file is created.
 os.environ["DATABASE_PATH"] = "/tmp/.ffxivpp_test_init.db"
 
-from app import create_app
-from app.db import (
+from app import create_app  # noqa: E402 -- DATABASE_PATH must be set first (note above)
+from app.db import (  # noqa: E402 -- same: app.db reads DATABASE_PATH at import time
     Base,
     Session,
     get_engine,

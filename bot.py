@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from bot.commands import client
+from bot.commands import client  # noqa: E402 -- .env must be loaded before bot imports
 
 
 def main() -> None:

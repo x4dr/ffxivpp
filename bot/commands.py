@@ -12,24 +12,35 @@ for _lib in ("requests_oauthlib", "oauthlib", "urllib3"):
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
-import asyncio
-import os
-import re
-from datetime import UTC, datetime
-from typing import Any
+import asyncio  # noqa: E402 -- logging setup above is intentional
+import os  # noqa: E402 -- logging setup above is intentional
+import re  # noqa: E402 -- logging setup above is intentional
+from datetime import UTC, datetime  # noqa: E402 -- logging setup above is intentional
+from typing import Any  # noqa: E402 -- logging setup above is intentional
 
-import discord
-from discord import app_commands
-from discord.ui import Button, Select, View
+import discord  # noqa: E402 -- logging setup above is intentional
+from discord import app_commands  # noqa: E402 -- logging setup above is intentional
+from discord.ui import Button, Select, View  # noqa: E402 -- logging setup above is intentional
 
-from app.compute import JOBS, JOBS_BY_ID, get_priority, parse_job_id
-from app.db import (
+from app.compute import (  # noqa: E402 -- logging setup above is intentional
+    JOBS,
+    JOBS_BY_ID,
+    get_priority,
+    parse_job_id,
+)
+from app.db import (  # noqa: E402 -- logging setup above is intentional
     Session,
     add_role_id,
     get_lodestone_link,
     remove_role_id,
 )
-from app.models import AppState, LodestoneLink, Party, PartyPerson, Person
+from app.models import (  # noqa: E402 -- logging setup above is intentional
+    AppState,
+    LodestoneLink,
+    Party,
+    PartyPerson,
+    Person,
+)
 
 VALID_JOBS = {j.id for j in JOBS}
 JOB_NAMES = {j.id: j.name for j in JOBS}
@@ -111,7 +122,11 @@ class PartyBot(discord.Client):
                 if task:
                     lodestone_id = task['lodestone_id']
                     try:
-                        link = Session.query(LodestoneLink).filter_by(lodestone_id=lodestone_id).first()
+                        link = (
+                            Session.query(LodestoneLink)
+                            .filter_by(lodestone_id=lodestone_id)
+                            .first()
+                        )
                         person_id = link.person_id if link else None
                     finally:
                         Session.remove()
@@ -122,7 +137,11 @@ class PartyBot(discord.Client):
                     # Fallback to regular task
                     link_fetched_at: str | None = None
                     try:
-                        link = Session.query(LodestoneLink).order_by(LodestoneLink.fetched_at.asc()).first()
+                        link = (
+                            Session.query(LodestoneLink)
+                            .order_by(LodestoneLink.fetched_at.asc())
+                            .first()
+                        )
                         lodestone_id = link.lodestone_id if link else None
                         person_id = link.person_id if link else None
                         if link:
@@ -155,11 +174,15 @@ class PartyBot(discord.Client):
                             channel = self.get_channel(int(party_info['channel_id']))
                             if channel and isinstance(channel, discord.TextChannel):
                                 try:
-                                    message = await channel.fetch_message(int(party_info['message_id']))
+                                    message = await channel.fetch_message(
+                                        int(party_info['message_id'])
+                                    )
                                     view = PersistentPartyView()
                                     await view.update_embed(channel, message)
                                 except Exception as e:
-                                    logging.error(f"Failed to update embed for {party_info['name']}: {e}")
+                                    logging.error(
+                                        f"Failed to update embed for {party_info['name']}: {e}"
+                                    )
 
                         if is_priority:
                             delete_scraper_task(lodestone_id)
@@ -237,7 +260,11 @@ def _save_person(name: str, jids: list[str], discord_id: str) -> None:
     pool_save(current)
     if discord_id:
         try:
-            if not Session.query(PartyPerson).filter_by(party_name='Default', person_name=name).first():
+            if not (
+                Session.query(PartyPerson)
+                .filter_by(party_name='Default', person_name=name)
+                .first()
+            ):
                 Session.add(PartyPerson(party_name='Default', person_name=name))
                 Session.commit()
         finally:
@@ -317,7 +344,9 @@ class RoleSelect(Select):
             opts.append(discord.SelectOption(label=label, emoji=emoji, value=role))
         opts.append(discord.SelectOption(label="──────────", value="---"))
         for role, label, emoji in ROLES:
-            opts.append(discord.SelectOption(label=f"All {label}s", emoji=emoji, value=f"all_{role}"))
+            opts.append(
+                discord.SelectOption(label=f"All {label}s", emoji=emoji, value=f"all_{role}")
+            )
         super().__init__(placeholder="Add a job…", options=opts)
         self._main_view = parent
 
@@ -332,7 +361,9 @@ class RoleSelect(Select):
                     self._main_view.jobs.append((jid, 5))
             self._main_view._save()
             self._main_view._build()
-            await interaction.response.edit_message(embed=self._main_view.build_embed(), view=self._main_view)
+            await interaction.response.edit_message(
+                embed=self._main_view.build_embed(), view=self._main_view
+            )
             return
         jobs_for_role = ROLE_JOBS[val]
         view = JobPicker(self._main_view, jobs_for_role)
@@ -371,13 +402,17 @@ class JobButton(Button):
             self._main_view.jobs.append((self.jid, 5))
         self._main_view._save()
         self._main_view._build()
-        await interaction.response.edit_message(embed=self._main_view.build_embed(), view=self._main_view)
+        await interaction.response.edit_message(
+            embed=self._main_view.build_embed(), view=self._main_view
+        )
 
 
 class JobAdjustSelect(Select):
     def __init__(self, parent: MyJobsView) -> None:
         opts = [
-            discord.SelectOption(label=f"{JOB_NAMES.get(jid, jid.upper())} [prio {prio}]", value=f"{jid}:{prio}")
+            discord.SelectOption(
+                label=f"{JOB_NAMES.get(jid, jid.upper())} [prio {prio}]", value=f"{jid}:{prio}"
+            )
             for jid, prio in parent.jobs
         ]
         super().__init__(placeholder="Adjust or remove a job…", options=opts, max_values=1)
@@ -417,10 +452,14 @@ class PrioritySelect(Select):
             self._main_view.jobs = [(j, p) for j, p in self._main_view.jobs if j != self.jid]
         else:
             new_prio = int(val)
-            self._main_view.jobs = [(j, new_prio if j == self.jid else p) for j, p in self._main_view.jobs]
+            self._main_view.jobs = [
+                (j, new_prio if j == self.jid else p) for j, p in self._main_view.jobs
+            ]
         self._main_view._save()
         self._main_view._build()
-        await interaction.response.edit_message(embed=self._main_view.build_embed(), view=self._main_view)
+        await interaction.response.edit_message(
+            embed=self._main_view.build_embed(), view=self._main_view
+        )
 
 
 # ── /setlodestone ──────────────────────────────────────────────────────
@@ -454,7 +493,9 @@ async def setlodestone(interaction: discord.Interaction, url: str) -> None:
         Session.remove()
 
     if not person:
-        await interaction.followup.send("Could not find a linked person for your Discord account.", ephemeral=True)
+        await interaction.followup.send(
+            "Could not find a linked person for your Discord account.", ephemeral=True
+        )
         return
 
     person_id = person.id
@@ -475,7 +516,9 @@ async def setlodestone(interaction: discord.Interaction, url: str) -> None:
     if data.get("avg_ilvl"):
         embed.add_field(name="Average Item Level", value=str(data["avg_ilvl"]), inline=False)
     if job_lines:
-        embed.add_field(name=f"Jobs ({len(job_lines)})", value="\n".join(job_lines[:15]), inline=False)
+        embed.add_field(
+            name=f"Jobs ({len(job_lines)})", value="\n".join(job_lines[:15]), inline=False
+        )
     if data.get("server"):
         embed.set_footer(text=f"{data['server']}  •  {data.get('source', '')}")
 
@@ -496,7 +539,10 @@ async def admin_role_add(interaction: discord.Interaction, role: discord.Role) -
     )
 
 
-@client.tree.command(name="admin-role-remove", description="Remove a role from admin panel whitelist")
+@client.tree.command(
+    name="admin-role-remove",
+    description="Remove a role from admin panel whitelist",
+)
 @app_commands.describe(role="Role to remove from whitelist")
 @app_commands.checks.has_permissions(administrator=True)
 async def admin_role_remove(interaction: discord.Interaction, role: discord.Role) -> None:
@@ -509,7 +555,11 @@ async def admin_role_remove(interaction: discord.Interaction, role: discord.Role
 
 class RecheckButton(Button):
     def __init__(self) -> None:
-        super().__init__(label="Recheck Lodestone", style=discord.ButtonStyle.secondary, custom_id="recheck_lodestone")
+        super().__init__(
+            label="Recheck Lodestone",
+            style=discord.ButtonStyle.secondary,
+            custom_id="recheck_lodestone",
+        )
 
     async def callback(self, interaction: discord.Interaction) -> None:
         from app.db import add_scraper_task, people_pool
@@ -518,7 +568,9 @@ class RecheckButton(Button):
         person = next((p for p in people_pool() if p.get("discord_id") == user_id), None)
 
         if not person:
-            await interaction.response.send_message("You are not registered in the bot.", ephemeral=True)
+            await interaction.response.send_message(
+                "You are not registered in the bot.", ephemeral=True
+            )
             return
 
         link = get_lodestone_link(person['id'])
@@ -537,7 +589,11 @@ class RecheckButton(Button):
 
 class DashboardButton(Button):
     def __init__(self) -> None:
-        super().__init__(label="Dashboard", style=discord.ButtonStyle.secondary, custom_id="party_dashboard")
+        super().__init__(
+            label="Dashboard",
+            style=discord.ButtonStyle.secondary,
+            custom_id="party_dashboard",
+        )
 
     async def callback(self, interaction: discord.Interaction) -> None:
         party_name = interaction.message.embeds[0].title.replace("Party: ", "")
@@ -554,15 +610,23 @@ class PersistentPartyView(View):
     @discord.ui.button(label="Join", style=discord.ButtonStyle.success, custom_id="party_join")
     async def party_join(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         from app.db import add_person_to_party
-        logging.info(f"Join button clicked by {interaction.user.display_name} (ID: {interaction.user.id})")
+        logging.info(
+            f"Join button clicked by {interaction.user.display_name} (ID: {interaction.user.id})"
+        )
         party_name = interaction.message.embeds[0].title.replace("Party: ", "")
         add_person_to_party(interaction.user.display_name, party_name)
         logging.info(f"User {interaction.user.display_name} added to party {party_name}")
         await interaction.response.defer()
         await self.update_embed(interaction.channel, interaction.message)
 
-    @discord.ui.button(label="Leave", style=discord.ButtonStyle.danger, custom_id="party_leave")
-    async def party_leave(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+    @discord.ui.button(
+        label="Leave",
+        style=discord.ButtonStyle.danger,
+        custom_id="party_leave",
+    )
+    async def party_leave(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
         from app.db import remove_person_from_party
         logging.info(f"Leave button clicked by {interaction.user.display_name}")
         party_name = interaction.message.embeds[0].title.replace("Party: ", "")
@@ -571,7 +635,11 @@ class PersistentPartyView(View):
         await interaction.response.defer()
         await self.update_embed(interaction.channel, interaction.message)
 
-    @discord.ui.button(label="Set Jobs", style=discord.ButtonStyle.primary, custom_id="party_set_jobs")
+    @discord.ui.button(
+        label="Set Jobs",
+        style=discord.ButtonStyle.primary,
+        custom_id="party_set_jobs",
+    )
     async def set_jobs(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         from bot.commands import MyJobsView, _load_person
         discord_id = str(interaction.user.id)
@@ -581,8 +649,14 @@ class PersistentPartyView(View):
         view = MyJobsView(name, existing, interaction.user.id)
         await interaction.response.send_message(embed=view.build_embed(), view=view, ephemeral=True)
 
-    @discord.ui.button(label="Move to Bottom", style=discord.ButtonStyle.secondary, custom_id="party_move_bottom")
-    async def move_to_bottom(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+    @discord.ui.button(
+        label="Move to Bottom",
+        style=discord.ButtonStyle.secondary,
+        custom_id="party_move_bottom",
+    )
+    async def move_to_bottom(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
         await interaction.response.defer()
         party_name = interaction.message.embeds[0].title.replace("Party: ", "")
         logging.info(f"Moving party {party_name} to bottom.")
@@ -672,7 +746,10 @@ class PersistentPartyView(View):
 
 
 
-@client.tree.command(name="setup-home-channel", description="Setup the persistent home channel embed for a party")
+@client.tree.command(
+    name="setup-home-channel",
+    description="Setup the persistent home channel embed for a party",
+)
 @app_commands.describe(party_name="The name of the party to set up")
 @app_commands.checks.has_permissions(administrator=True)
 async def setup_home_channel(interaction: discord.Interaction, party_name: str) -> None:
@@ -685,7 +762,9 @@ async def setup_home_channel(interaction: discord.Interaction, party_name: str) 
 
     if not party:
         view = CreatePartyView(party_name)
-        await interaction.response.send_message(f"Party '{party_name}' not found. Create it?", view=view, ephemeral=True)
+        await interaction.response.send_message(
+            f"Party '{party_name}' not found. Create it?", view=view, ephemeral=True
+        )
         return
 
     await _perform_setup(interaction, party_name)
@@ -714,7 +793,9 @@ async def _perform_setup(interaction: discord.Interaction, party_name: str) -> N
     if interaction.response.is_done():
         await interaction.followup.send(f"Home channel setup for {party_name}!", ephemeral=True)
     else:
-        await interaction.response.send_message(f"Home channel setup for {party_name}!", ephemeral=True)
+        await interaction.response.send_message(
+            f"Home channel setup for {party_name}!", ephemeral=True
+        )
 
 
 class CreatePartyView(View):
