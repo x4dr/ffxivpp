@@ -24,7 +24,7 @@
 {% for q in quests %}
   <div class="card">
     <h3><a href="/quests/{{ q.id }}">{{ q.title }}</a></h3>
-    <span class="muted">by {{ q.created_by }} · updated {{ q.updated_at[:16] }}
+    <span class="muted">by {{ q.created_by }} · updated {{ q.updated_at|dt }}
       {%- if q.deadline %} · due {{ q.deadline }}{% endif %}</span><br>
     <span class="chip">{{ q.nodes_fulfilled }}/{{ q.nodes_total }} nodes done</span>
     {% for s in q.shopping_list %}<span class="chip {{ 'hq' if s.quality == 'hq' }}">{{ s.name }} x{{ s.outstanding }}</span>{% endfor %}

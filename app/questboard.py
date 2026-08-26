@@ -37,6 +37,19 @@ from core.wiki import lookup_recipe
 bp = Blueprint("questboard", __name__, url_prefix="/quests")
 
 
+@bp.app_template_filter("dt")
+def friendly_dt(value: Any, seconds: bool = False) -> str:
+    """ISO timestamp -> 'YYYY-MM-DD HH:MM[SS]'; returns input unchanged if unparsable."""
+    from datetime import datetime
+
+    text = str(value)
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return text
+    return parsed.strftime("%Y-%m-%d %H:%M:%S" if seconds else "%Y-%m-%d %H:%M")
+
+
 def _current_user() -> tuple[str, bool]:
     """Return (discord_user_id, is_officer). Unauthenticated -> ("", False)."""
     discord = get_discord()

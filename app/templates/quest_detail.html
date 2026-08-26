@@ -4,7 +4,7 @@
 <p><a href="/quests/">← Questboard</a></p>
 <h1>{{ quest.title }} {% if quest.status != 'open' %}<span class="chip {{ 'done' if quest.status == 'fulfilled' }}">{{ quest.status }}</span>{% endif %}</h1>
 {% if quest.description %}<p>{{ quest.description }}</p>{% endif %}
-<p class="muted">by {{ quest.created_by }} · created {{ quest.created_at[:16] }}
+<p class="muted">by {{ quest.created_by }} · created {{ quest.created_at|dt }}
   {%- if quest.deadline %} · <strong>due {{ quest.deadline }}</strong>{% endif %}</p>
 
 <div class="card">

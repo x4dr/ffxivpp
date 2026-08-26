@@ -109,6 +109,11 @@ class TestPrediction:
         )
         items_high = {entry["item"] for entry in high["loot"]}
         assert {"Water Crystal", "Rare Coral", "Iron Ore"} <= items_high
+        # every loot row carries its sector id and threshold (regression: the
+        # web page once rendered "(sector )" empty because these were missing)
+        for entry in high["loot"]:
+            assert entry["sector"] in {"A", "B"}
+            assert isinstance(entry["threshold"], int)
         assert high["locked_bands"] == []
 
     def test_deterministic(self, pack: dict[str, Any]) -> None:

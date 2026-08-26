@@ -151,6 +151,8 @@ def predict_voyage(
                     scaled["qty_scaled"] = [
                         max(1, q * retrieval // 100) if retrieval else q for q in qty
                     ]
+                    scaled["sector"] = sid
+                    scaled["threshold"] = band["min_surveillance"]
                     loot.append(scaled)
             else:
                 locked.append(f"{sid} ({band['min_surveillance']}+)")
