@@ -6,14 +6,62 @@ from app.models import LodestoneLink, Party, PartyPerson, PersonModel
 
 def migrate():
     data = [
-        {"name": "Damian Blake", "jobs": "drk,gnb", "discord_id": "387309386843815947", "parties": ["Default"], "lodestone_id": None},
-        {"name": "Lookei Lionheart", "jobs": "vpr,sam", "discord_id": "111117588553060352", "parties": ["Default"], "lodestone_id": "32267141"},
-        {"name": "Luneli Lainosi", "jobs": "sge,whm,dnc", "discord_id": "393428399353364503", "parties": ["Default"], "lodestone_id": "28630035"},
-        {"name": "Maric", "jobs": "pld,whm,drg,blm", "discord_id": "217068793543917569", "parties": ["Default", "testparty"], "lodestone_id": "54185648"},
-        {"name": "Naghia Gil", "jobs": "pct,vpr", "discord_id": "158302672414441481", "parties": ["Default"], "lodestone_id": "59662524"},
-        {"name": "Rayne Blake", "jobs": "rdm,nin", "discord_id": "176308138042064897", "parties": ["Default"], "lodestone_id": None},
-        {"name": "Vey Bramble", "jobs": "dnc,nin", "discord_id": "229632496625516544", "parties": ["Default"], "lodestone_id": "59874367"},
-        {"name": "saga salem", "jobs": "sge", "discord_id": "906214878367326251", "parties": ["Default"], "lodestone_id": "54185676"},
+        {
+            "name": "Damian Blake",
+            "jobs": "drk,gnb",
+            "discord_id": "387309386843815947",
+            "parties": ["Default"],
+            "lodestone_id": None,
+        },
+        {
+            "name": "Lookei Lionheart",
+            "jobs": "vpr,sam",
+            "discord_id": "111117588553060352",
+            "parties": ["Default"],
+            "lodestone_id": "32267141",
+        },
+        {
+            "name": "Luneli Lainosi",
+            "jobs": "sge,whm,dnc",
+            "discord_id": "393428399353364503",
+            "parties": ["Default"],
+            "lodestone_id": "28630035",
+        },
+        {
+            "name": "Maric",
+            "jobs": "pld,whm,drg,blm",
+            "discord_id": "217068793543917569",
+            "parties": ["Default", "testparty"],
+            "lodestone_id": "54185648",
+        },
+        {
+            "name": "Naghia Gil",
+            "jobs": "pct,vpr",
+            "discord_id": "158302672414441481",
+            "parties": ["Default"],
+            "lodestone_id": "59662524",
+        },
+        {
+            "name": "Rayne Blake",
+            "jobs": "rdm,nin",
+            "discord_id": "176308138042064897",
+            "parties": ["Default"],
+            "lodestone_id": None,
+        },
+        {
+            "name": "Vey Bramble",
+            "jobs": "dnc,nin",
+            "discord_id": "229632496625516544",
+            "parties": ["Default"],
+            "lodestone_id": "59874367",
+        },
+        {
+            "name": "saga salem",
+            "jobs": "sge",
+            "discord_id": "906214878367326251",
+            "parties": ["Default"],
+            "lodestone_id": "54185676",
+        },
     ]
 
     session: SQLAlchemySession = Session()

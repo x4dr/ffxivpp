@@ -79,7 +79,8 @@ async def test_missing_lodestone_data():
         embed = message.edit.call_args[1]['embed']
         # The code logic for missing data might be different than the test expects.
         # Check what the actual code does.
-        # Actually, if char_data is None, it doesn't add "Loading" or "[no data]" specifically in the code I read.
+        # Actually, if char_data is None, it doesn't add "Loading" or "[no data]"
+        # specifically in the code I read.
         # It just skips the status check.
         # The test seems to expect "[no data]". I will let it fail or update the test to match.
         assert "Loading" in embed.description

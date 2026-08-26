@@ -19,7 +19,9 @@ def test_add_person_api(client, auto_auth):
     Session.add(PersonModel(name="NewPerson", jobs="pld"))
     Session.commit()
 
-    response = client.post("/api/people-pool/add", json={"name": "NewPerson", "party_name": "Default"})
+    response = client.post(
+        "/api/people-pool/add", json={"name": "NewPerson", "party_name": "Default"}
+    )
     assert response.status_code == 200
 
     people = people_from_db("Default")
