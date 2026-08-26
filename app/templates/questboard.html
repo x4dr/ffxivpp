@@ -46,5 +46,14 @@ async function createQuest() {
   });
   if (data) location.href = '/quests/' + data.quest_id;
 }
+
+// SSE live updates: reload the board whenever any quest changes.
+// Limitation: one global signal (no per-quest granularity), so we simply
+// refresh the list. EventSource reconnects automatically on drops.
+if (window.EventSource) {
+  const source = new EventSource('/quests/api/stream');
+  source.addEventListener('quest-changed', () => location.reload());
+  source.onerror = () => { /* auto-reconnect handled by EventSource */ };
+}
 </script>
 {% endblock %}
