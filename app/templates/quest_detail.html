@@ -13,6 +13,7 @@
     {% for s in statuses recursive %}
     <li>
       <span class="chip">{{ s.name }}</span> x{{ s.required }}
+      <span class="muted price-hint" data-item-name="{{ s.name }}" data-quality="{{ s.quality }}"></span>
       {% if s.quality == 'hq' %}<span class="chip hq">HQ</span>{% endif %}
       {% if s.fulfilled %}<span class="chip done">done</span>
       {% elif s.pledged > 0 %}<span class="chip">{{ s.pledged }} pledged</span>{% endif %}
@@ -25,6 +26,39 @@
     {% endfor %}
   </ul>
 </div>
+
+<div class="card">
+  <h3 style="margin-top:0">Reminders</h3>
+  <label>
+    <input type="checkbox" id="remind-toggle"
+           {% if my_reminder %}checked{% endif %} onchange="toggleRemind(this)">
+    Remind me while I have open pledges
+  </label>
+  {% if my_reminder %}
+  <p class="muted">opted in: {{ my_reminder.frequency }} at
+    {{ '%02d:%02d' | format(my_reminder.hour_utc, my_reminder.minute_utc) }} UTC</p>
+  {% else %}
+  <p class="muted">toggling on opts you in daily at 18:00 UTC.</p>
+  {% endif %}
+</div>
+
+{% if is_officer %}
+<div class="card">
+  <h3 style="margin-top:0">Officer actions</h3>
+  {% if quest.status == 'open' %}
+  <button class="danger" onclick="setStatus('cancelled')">Cancel quest</button>
+  <button onclick="setStatus('fulfilled')">Mark fulfilled</button>
+  <button onclick="reexpand()">Re-expand recipe</button>
+  {% endif %}
+  <div style="margin-top:0.75rem">
+    <label>Deadline:
+      <input id="deadline-input" type="date" value="{{ quest.deadline or '' }}">
+    </label>
+    <button onclick="saveDeadline()">Save deadline</button>
+    <span class="muted">clears when left empty</span>
+  </div>
+</div>
+{% endif %}
 
 {% if my_pledges %}
 <div class="card">
@@ -39,14 +73,6 @@
     {% endif %}
   </div>
   {% endfor %}
-</div>
-{% endif %}
-
-{% if is_officer and quest.status == 'open' %}
-<div class="card">
-  <h3 style="margin-top:0">Officer actions</h3>
-  <button class="danger" onclick="setStatus('cancelled')">Cancel quest</button>
-  <button onclick="setStatus('fulfilled')">Mark fulfilled</button>
 </div>
 {% endif %}
 
@@ -80,5 +106,48 @@ async function setStatus(status) {
   const ok = await postJson(`/quests/api/${qid}/status`, {status});
   if (ok) location.reload();
 }
+async function reexpand() {
+  const ok = await postJson(`/quests/api/${qid}/reexpand`, {});
+  if (ok) location.reload();
+}
+async function toggleRemind(cb) {
+  const data = await postJson(`/quests/api/${qid}/remind`, {});
+  if (!data) { cb.checked = !cb.checked; return; }
+  location.reload();
+}
+async function saveDeadline() {
+  const value = document.getElementById('deadline-input').value;
+  const ok = await postJson(`/quests/api/${qid}/deadline`, {deadline: value || null});
+  if (ok) location.reload();
+}
+
+// Universalis price hints: fetched lazily (staggered, one request per unique
+// item name so repeated ingredients share the answer).
+function fmtGil(v) { return new Intl.NumberFormat().format(v); }
+async function loadPrices() {
+  const hints = [...document.querySelectorAll('.price-hint')];
+  const names = [...new Set(hints.map(el => el.dataset.itemName))];
+  for (const name of names) {
+    let price = null;
+    try {
+      const resp = await fetch(`/quests/api/price/${encodeURIComponent(name)}`);
+      if (resp.ok) {
+        const body = await resp.json();
+        price = body.price;
+      }
+    } catch (err) { /* leave hint empty */ }
+    for (const el of hints.filter(e => e.dataset.itemName === name)) {
+      if (!price) { el.textContent = '· no market data'; continue; }
+      const wantHq = el.dataset.quality === 'hq';
+      const gil = wantHq ? (price.min_listing_hq ?? price.min_listing_nq)
+                         : (price.min_listing_nq ?? price.min_listing_hq);
+      el.textContent = (gil == null)
+        ? '· no listings'
+        : `≈ ${fmtGil(gil)} gil${wantHq ? ' (HQ)' : ''}`;
+    }
+    await new Promise(r => setTimeout(r, 150));
+  }
+}
+if (document.querySelector('.price-hint')) loadPrices();
 </script>
 {% endblock %}

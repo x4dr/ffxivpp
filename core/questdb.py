@@ -21,6 +21,24 @@ QUEST_OPEN = "open"
 QUEST_FULFILLED = "fulfilled"
 QUEST_CANCELLED = "cancelled"
 
+# --- board change signalling (SSE) ------------------------------------------
+
+# Monotonic version bumped by every board-visible mutation.  The web layer's
+# SSE loop polls this once per second and emits an event when it moved; a
+# single global counter is deliberately coarse (clients reload the whole
+# list/detail) but requires no per-connection registration.
+_change_version: int = 0
+
+
+def change_version() -> int:
+    """Current global board-change version (incremented on every mutation)."""
+    return _change_version
+
+
+def _bump_change_version() -> None:
+    global _change_version  # noqa: PLW0603 - module-level counter is the design
+    _change_version += 1
+
 
 class Quest(Base):
     __tablename__ = "quests"
@@ -169,6 +187,7 @@ def create_quest(
             )
         )
         Session.commit()
+        _bump_change_version()
         return qid
     finally:
         Session.remove()
@@ -236,6 +255,7 @@ def set_quest_status(quest_id: int, status: str, actor_id: str) -> bool:
             )
         )
         Session.commit()
+        _bump_change_version()
         return True
     finally:
         Session.remove()
@@ -285,6 +305,7 @@ def add_pledge(quest_id: int, node_id: str, person_id: str, qty: int, actor_id: 
         pid = int(pledge.id)
         _touch(q)
         log_event(quest_id, "pledge_added", actor_id, node=node_id, qty=qty, pledge_id=pid)
+        _bump_change_version()
         return pid
     finally:
         Session.remove()
@@ -301,6 +322,7 @@ def withdraw_pledge(pledge_id: int, person_id: str) -> bool:
         if q:
             _touch(q)
         log_event(p.quest_id, "pledge_withdrawn", person_id, pledge_id=pledge_id)
+        _bump_change_version()
         return True
     finally:
         Session.remove()
@@ -331,6 +353,7 @@ def mark_turned_in(pledge_id: int, person_id: str, qty: int | None = None) -> bo
             complete=(p.turned_qty >= p.qty),
         )
         del was_open
+        _bump_change_version()
         return True
     finally:
         Session.remove()
@@ -436,5 +459,99 @@ def due_reminders(now_utc: datetime | None = None) -> list[dict[str, Any]]:
                 }
             )
         return out
+    finally:
+        Session.remove()
+
+
+def update_quest_tree(
+    quest_id: int,
+    root_tree: dict[str, Any],
+    actor_id: str,
+    added_nodes: int = 0,
+) -> bool:
+    """Replace the stored requirement tree (re-expansion); logs a board event.
+
+    Callers are responsible for additive merges that keep existing positional
+    node ids stable so live pledges never dangle. Returns False when missing.
+    """
+    try:
+        q = Session.query(Quest).filter_by(id=quest_id).first()
+        if not q:
+            return False
+        q.tree_json = json.dumps(root_tree)
+        _touch(q)
+        Session.add(
+            QuestEvent(
+                quest_id=quest_id,
+                kind="tree_reexpanded",
+                actor_id=actor_id,
+                payload_json=json.dumps({"added_nodes": added_nodes}),
+                created_at=_now(),
+            )
+        )
+        Session.commit()
+        _bump_change_version()
+        return True
+    finally:
+        Session.remove()
+
+
+def set_quest_deadline(quest_id: int, deadline: str | None, actor_id: str) -> bool:
+    """Set or clear (None) the quest deadline; logs a board event."""
+    try:
+        q = Session.query(Quest).filter_by(id=quest_id).first()
+        if not q:
+            return False
+        old = q.deadline
+        q.deadline = deadline
+        _touch(q)
+        Session.add(
+            QuestEvent(
+                quest_id=quest_id,
+                kind="deadline_changed",
+                actor_id=actor_id,
+                payload_json=json.dumps({"from": old, "to": deadline}),
+                created_at=_now(),
+            )
+        )
+        Session.commit()
+        _bump_change_version()
+        return True
+    finally:
+        Session.remove()
+
+
+def get_reminder_optin(quest_id: int, person_id: str) -> dict[str, Any] | None:
+    """Current reminder opt-in for one user on one quest, or None."""
+    try:
+        row = (
+            Session.query(ReminderOptIn)
+            .filter_by(quest_id=quest_id, person_id=person_id)
+            .first()
+        )
+        if not row:
+            return None
+        return {
+            "quest_id": row.quest_id,
+            "person_id": row.person_id,
+            "frequency": row.frequency,
+            "hour_utc": row.hour_utc,
+            "minute_utc": row.minute_utc,
+            "weekday_utc": row.weekday_utc,
+        }
+    finally:
+        Session.remove()
+
+
+def remove_reminder_optin(quest_id: int, person_id: str) -> bool:
+    """Delete a reminder opt-in; True when a row was removed."""
+    try:
+        deleted = (
+            Session.query(ReminderOptIn)
+            .filter_by(quest_id=quest_id, person_id=person_id)
+            .delete()
+        )
+        Session.commit()
+        return bool(deleted)
     finally:
         Session.remove()

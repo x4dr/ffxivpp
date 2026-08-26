@@ -51,9 +51,10 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
 
     app.teardown_appcontext(close_db)
 
-    with app.app_context():
-        init_db()
-
+    # Import all blueprints BEFORE init_db(): their model modules (core.questdb
+    # via chest.py) register tables on Base.metadata. create_all() ran before
+    # these imports, so a fresh database was created without the questboard
+    # tables (surfaced 2026-08-27 by the overview route reading quests).
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp)
 
@@ -65,6 +66,9 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
 
     from app.chest import bp as chest_bp
     app.register_blueprint(chest_bp)
+
+    with app.app_context():
+        init_db()
 
     from app.routes import bp
     app.register_blueprint(bp)
