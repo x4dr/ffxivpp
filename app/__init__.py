@@ -58,6 +58,9 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
     from app.questboard import bp as questboard_bp
     app.register_blueprint(questboard_bp)
 
+    from app.voyage_views import bp as voyages_bp
+    app.register_blueprint(voyages_bp)
+
     from app.routes import bp
     app.register_blueprint(bp)
 

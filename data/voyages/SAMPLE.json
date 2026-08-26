@@ -1,0 +1,29 @@
+{
+  "meta": {
+    "game_version": "0.0",
+    "source": "SYNTHETIC SAMPLE - not real game data; replace with a community pack"
+  },
+  "ships": {
+    "submarine": {"base_range": 100},
+    "airship": {"base_range": 96}
+  },
+  "sectors": [
+    {
+      "id": "A", "name": "sample sector A", "distance": 30,
+      "surveillance_thresholds": [
+        {"min_surveillance": 0, "loot": [{"item": "Water Crystal", "qty": [10, 20]}]},
+        {"min_surveillance": 80, "loot": [{"item": "Rare Coral", "qty": [1, 2]}]}
+      ]
+    },
+    {
+      "id": "B", "name": "sample sector B", "distance": 45,
+      "surveillance_thresholds": [
+        {"min_surveillance": 50, "loot": [{"item": "Iron Ore", "qty": [5, 12]}]}
+      ]
+    }
+  ],
+  "routes": [
+    {"name": "Sample Loop", "ship": "submarine",
+     "sector_ids": ["A", "B"], "duration_minutes": 720}
+  ]
+}

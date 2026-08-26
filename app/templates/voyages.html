@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Voyages{% endblock %}
+{% block content %}
+<p><a href="/quests/">← Questboard</a></p>
+<h1>Voyages</h1>
+{% if error %}
+  <div class="card">{{ error }}</div>
+{% else %}
+  <p class="muted">Data pack: {{ meta.source }} (game version {{ meta.game_version }})</p>
+  {% for r in routes %}
+    <a class="chip {{ '' if r == selected else 'muted' }}" href="/voyages/?route={{ r|urlencode }}">{{ r }}</a>
+  {% endfor %}
+  {% if prediction %}
+  <div class="card">
+    <h3 style="margin-top:0">{{ prediction.route }} — {{ prediction.ship }}</h3>
+    <p>
+      {% if prediction.reachable %}<span class="chip done">reachable</span>
+      {% else %}<span class="chip hq">out of range: needs {{ prediction.range_needed }}, has {{ prediction.range_available }}</span>{% endif %}
+      {% if prediction.duration_minutes %}<span class="chip">{{ prediction.duration_minutes // 60 }}h travel</span>{% endif %}
+      <span class="chip">surveillance {{ prediction.surveillance }}</span>
+    </p>
+    <ul class="tree">
+      {% for entry in prediction.loot %}
+      <li>{{ entry.item }} x{{ entry.qty_scaled[0] }}–{{ entry.qty_scaled[-1] }}
+        <span class="muted">(sector {{ entry.sector }})</span></li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+{% endif %}
+{% endblock %}
