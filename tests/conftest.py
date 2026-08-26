@@ -73,7 +73,21 @@ def _clean_db() -> None:
         PersonModel,
         ScraperTask,
     )
+    from core.questdb import (
+        ChestSnapshot,
+        ItemCatalog,
+        Quest,
+        QuestEvent,
+        QuestPledge,
+        ReminderOptIn,
+    )
     tables = [
+        QuestPledge,
+        QuestEvent,
+        ReminderOptIn,
+        Quest,
+        ItemCatalog,
+        ChestSnapshot,
         PartyPerson,
         PartyConstraint,
         PartyExclusion,

@@ -1,0 +1,64 @@
+{{Item infobox
+| name = Baked Eggplant
+| icon = baked eggplant icon1.png
+| description = Topped with sliced vegetables and a healthy coating of melted Garlean cheese, these rich eggplants have been roasted to tender perfection.<br><br>EXP Bonus: +3%&nbsp;Duration: 30m<br>
+| type = medicines & meals
+| effects = {{item effect|determination|percent=8%|max=82}}{{item effect|vitality|percent=8%|max=114}}{{item effect|critical hit|percent=8%|max=49}}
+| effects-hq = {{item effect|determination|percent=10%|max=103}}{{item effect|vitality|percent=10%|max=143}}{{item effect|critical hit|percent=10%|max=62}}
+| material-type = Meal
+| unique = 
+| untradable = 
+| unsellable = 
+| rarity = white
+| level = 
+| ilvl = 640
+| race = 
+| gender = 
+| recast = 
+| recast-hq = 
+| cost = 
+| value = 30
+| value-hq = 33
+| seals = 
+| patch = 6.4
+| release = endwalker
+| id-edb = 3c6b77c9986
+| id-gt = 39872
+}}
+__NOTOC__
+==Acquisition==
+===Crafting Recipe===
+{{Recipe
+| source = recipe sheet
+| sheet = Master Culinarian X
+| type = Meal
+| class = Culinarian
+| level = 90
+| rank = 4
+| durability = 70
+| difficulty = 6600
+| max-quality = 14040
+| yield = 3
+| quick-synthesis = 
+| qs-craftsmanship = 
+| hq = 
+| craftsmanship = 3950
+| craftsmanship-rec = 
+| control = 3660
+| control-rec = 
+| aspect = 
+| specialization = 
+| ingredient1 = 1 Dark Eggplant
+| ingredient2 = 2 Garlean Cheese
+| ingredient3 = 1 Frantoio Oil
+| ingredient4 = 1 Giant Popoto
+| ingredient5 = 1 Blood Tomato
+| ingredient6 = 1 Earthbreak Aethersand
+| ingredient7 = 3 Fire Cluster
+| ingredient8 = 3 Water Cluster
+}}
+
+===Quests===
+{{quest list header|item-rewards=y}}
+{{quest list row|Down in the Dark}}
+{{table footer}}
