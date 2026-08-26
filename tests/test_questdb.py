@@ -132,11 +132,12 @@ class TestReminders:
             questdb.upsert_reminder_optin(quest_id, "222", "daily", 25)
 
     def test_upsert_and_due_query(self, quest_id: int) -> None:
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         questdb.upsert_reminder_optin(quest_id, "222", "daily", 7, 30)
-        questdb.upsert_reminder_optin(quest_id, "222", "weekly", 8, 0)  # upsert
-        due = questdb.due_reminders(datetime(2026, 8, 27, 8, 0))
+        questdb.upsert_reminder_optin(quest_id, "222", "weekly", 8, 0, weekday_utc=0)  # upsert
+        monday = datetime(2026, 8, 31, 8, 0, tzinfo=UTC)  # a Monday
+        due = questdb.due_reminders(monday)
         assert len(due) == 1
         assert due[0]["person_id"] == "222"
         assert due[0]["frequency"] == "weekly"
