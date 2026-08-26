@@ -2,15 +2,17 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
 from dotenv import load_dotenv
-
-load_dotenv()
-
 from flask import Flask, request
 from flask_discord import DiscordOAuth2Session  # type: ignore[import-untyped]
 
-from app.db import close_db, init_db
+load_dotenv()
+
+# Must stay below load_dotenv(): app.db binds the SQLAlchemy engine to
+# DATABASE_PATH at import time.
+from app.db import close_db, init_db  # noqa: E402
 
 for _lib in ("requests_oauthlib", "oauthlib", "urllib3"):
     logging.getLogger(_lib).setLevel(logging.WARNING)
@@ -18,21 +20,21 @@ for _lib in ("requests_oauthlib", "oauthlib", "urllib3"):
 
 def create_app(config_override: dict[str, Any] | None = None) -> Flask:
     app = Flask(__name__, static_folder="../static")
-    
+
     # Configure logging to stdout for tests/debugging
     import sys
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.INFO)
     app.logger.addHandler(handler)
     app.logger.setLevel(logging.INFO)
-    
+
     @app.before_request
-    def log_request_info():
+    def log_request_info() -> None:
         app.logger.info(f"Request: {request.method} {request.url}")
 
     if config_override:
         app.config.update(config_override)
-    
+
     sk = os.environ.get("FLASK_SECRET_KEY")
     if not sk:
         raise RuntimeError("FLASK_SECRET_KEY must be set in .env")

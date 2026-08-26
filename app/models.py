@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Optional
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import ForeignKey, String, Integer, Text
+import json
 
 # --- Dataclasses for Compute ---
 from dataclasses import dataclass, field
-import json
+from typing import Any
+
+from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
 
 @dataclass(frozen=True)
 class Job:
@@ -14,13 +16,13 @@ class Job:
     name: str
     role: str
     sub: str
-    dps_type: Optional[str] = None
+    dps_type: str | None = None
 
 @dataclass
 class Person:
     name: str
     jobs: list[str] = field(default_factory=list)
-    discord_id: Optional[str] = None
+    discord_id: str | None = None
 
 @dataclass
 class Assignment:
@@ -99,36 +101,48 @@ class Base(DeclarativeBase):
 class Party(Base):
     __tablename__ = "parties"
     name: Mapped[str] = mapped_column(String, primary_key=True)
-    home_channel_id: Mapped[Optional[str]] = mapped_column(Text)
-    home_message_id: Mapped[Optional[str]] = mapped_column(Text)
-    members: Mapped[list["PartyPerson"]] = relationship("PartyPerson", back_populates="party", cascade="all, delete-orphan")
+    home_channel_id: Mapped[str | None] = mapped_column(Text)
+    home_message_id: Mapped[str | None] = mapped_column(Text)
+    members: Mapped[list[PartyPerson]] = relationship(
+        "PartyPerson", back_populates="party", cascade="all, delete-orphan"
+    )
 
 class PersonModel(Base):
     __tablename__ = "people"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     jobs: Mapped[str] = mapped_column(Text, default='')
-    discord_id: Mapped[Optional[str]] = mapped_column(String)
-    lodestone: Mapped[Optional["LodestoneLink"]] = relationship("LodestoneLink", back_populates="person", uselist=False, cascade="all, delete-orphan")
-    
+    discord_id: Mapped[str | None] = mapped_column(String)
+    lodestone: Mapped[LodestoneLink | None] = relationship(
+        "LodestoneLink", back_populates="person", uselist=False, cascade="all, delete-orphan"
+    )
+
 class PartyPerson(Base):
     __tablename__ = "party_people"
-    party_name: Mapped[str] = mapped_column(ForeignKey("parties.name", ondelete="CASCADE"), primary_key=True)
-    person_name: Mapped[str] = mapped_column(ForeignKey("people.name", ondelete="CASCADE"), primary_key=True)
-    
-    party: Mapped["Party"] = relationship("Party", back_populates="members")
-    person: Mapped["PersonModel"] = relationship("PersonModel", backref="party_associations")
+    party_name: Mapped[str] = mapped_column(
+        ForeignKey("parties.name", ondelete="CASCADE"), primary_key=True
+    )
+    person_name: Mapped[str] = mapped_column(
+        ForeignKey("people.name", ondelete="CASCADE"), primary_key=True
+    )
+
+    party: Mapped[Party] = relationship("Party", back_populates="members")
+    person: Mapped[PersonModel] = relationship("PersonModel", backref="party_associations")
 
 class PartyConstraint(Base):
     __tablename__ = "party_constraints"
-    party_name: Mapped[str] = mapped_column(ForeignKey("parties.name", ondelete="CASCADE"), primary_key=True)
+    party_name: Mapped[str] = mapped_column(
+        ForeignKey("parties.name", ondelete="CASCADE"), primary_key=True
+    )
     key: Mapped[str] = mapped_column(String, primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
 
 class PartyExclusion(Base):
     __tablename__ = "party_exclusions"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    party_name: Mapped[str] = mapped_column(ForeignKey("parties.name", ondelete="CASCADE"), nullable=False)
+    party_name: Mapped[str] = mapped_column(
+        ForeignKey("parties.name", ondelete="CASCADE"), nullable=False
+    )
     jobs: Mapped[str] = mapped_column(Text, nullable=False)
 
 class AppState(Base):
@@ -143,11 +157,13 @@ class AdminRole(Base):
 
 class LodestoneLink(Base):
     __tablename__ = "lodestone_links"
-    person_id: Mapped[int] = mapped_column(ForeignKey("people.id", ondelete="CASCADE"), primary_key=True)
+    person_id: Mapped[int] = mapped_column(
+        ForeignKey("people.id", ondelete="CASCADE"), primary_key=True
+    )
     lodestone_id: Mapped[str] = mapped_column(String, primary_key=True)
-    character_name: Mapped[Optional[str]] = mapped_column(String)
-    fetched_at: Mapped[Optional[str]] = mapped_column(String)
-    person: Mapped["PersonModel"] = relationship("PersonModel", back_populates="lodestone")
+    character_name: Mapped[str | None] = mapped_column(String)
+    fetched_at: Mapped[str | None] = mapped_column(String)
+    person: Mapped[PersonModel] = relationship("PersonModel", back_populates="lodestone")
 
 class CharacterCache(Base):
     __tablename__ = "character_cache"

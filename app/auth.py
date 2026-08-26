@@ -4,7 +4,7 @@ import logging
 import os
 from collections.abc import Callable
 from functools import wraps
-from typing import Any
+from typing import Any, Protocol, cast
 
 import requests
 from flask import (
@@ -31,7 +31,26 @@ logger.setLevel(logging.INFO)
 bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 
-def get_discord() -> DiscordOAuth2Session:
+class DiscordLike(Protocol):
+    """Structural surface of DiscordOAuth2Session actually used by this app.
+
+    Lets the test mock in ``get_discord`` be typed honestly instead of
+    silenced with ``type: ignore``; the real flask_discord class satisfies
+    it structurally.
+    """
+
+    authorized: bool
+
+    def fetch_user(self) -> Any: ...
+
+    def create_session(self, scope: list[str]) -> Response: ...
+
+    def callback(self) -> None: ...
+
+    def revoke(self) -> None: ...
+
+
+def get_discord() -> DiscordLike:
     if os.environ.get("TEST_MOCK_AUTH") == "1":
         class MockUser:
             id = "12345"
@@ -39,14 +58,16 @@ def get_discord() -> DiscordOAuth2Session:
             authorized = True
             def fetch_user(self) -> MockUser:
                 return MockUser()
-            def create_session(self, scope: list[str]) -> None:
-                return None
+            def create_session(self, scope: list[str]) -> Response:
+                return make_response("", 302)
             def callback(self) -> None:
                 return None
             def revoke(self) -> None:
                 return None
-        return MockDiscord() # type: ignore
-    return DiscordOAuth2Session(current_app)
+        return MockDiscord()
+    # flask_discord ships no type information; the session is trusted to
+    # satisfy DiscordLike structurally (verified at the call sites).
+    return cast(DiscordLike, DiscordOAuth2Session(current_app))
 
 
 def _guild_id() -> str | None:
@@ -57,7 +78,11 @@ def _bot_token() -> str | None:
     return os.environ.get("DISCORD_BOT_TOKEN")
 
 
-def _bot_api(method: str, path: str, json: dict[str, Any] | None = None) -> dict[str, Any] | None:
+def _bot_api(
+    method: str,
+    path: str,
+    json: dict[str, Any] | None = None,
+) -> dict[str, Any] | list[dict[str, Any]] | None:
     token = _bot_token()
     if not token:
         logger.error("_bot_api: No bot token available")
@@ -72,7 +97,9 @@ def _bot_api(method: str, path: str, json: dict[str, Any] | None = None) -> dict
     if r.status_code not in (200, 201):
         logger.error("_bot_api %s %s failed: %s - %s", method, path, r.status_code, r.text)
         return None
-    return r.json()
+    # Discord REST endpoints return either a JSON object or a JSON array.
+    payload: dict[str, Any] | list[dict[str, Any]] = r.json()
+    return payload
 
 
 def check_access() -> bool:
@@ -96,7 +123,7 @@ def check_access() -> bool:
         return False
 
     guild = _bot_api("GET", f"/guilds/{guild_id}")
-    if guild:
+    if isinstance(guild, dict):
         logger.info("check_access: Guild API response: owner_id=%s", guild.get("owner_id"))
         if guild.get("owner_id") == user_id:
             logger.info("check_access: User is guild owner")
@@ -105,7 +132,7 @@ def check_access() -> bool:
         logger.info("check_access: Guild API failed")
 
     member = _bot_api("GET", f"/guilds/{guild_id}/members/{user_id}")
-    if not member:
+    if not isinstance(member, dict):
         logger.info("check_access: Member lookup failed or user not in guild")
         return False
 
@@ -121,7 +148,7 @@ def require_admin(f: Callable[..., Response]) -> Callable[..., Response]:
     def decorated(*args: Any, **kwargs: Any) -> Response:
         discord = get_discord()
         if not discord.authorized:
-            return redirect(url_for("auth.login"))  # type: ignore[return-value]
+            return make_response(redirect(url_for("auth.login")))
         if not check_access():
             return make_response("Not authorized", 403)
         return f(*args, **kwargs)
@@ -155,20 +182,20 @@ def require_party_member(f: Callable[..., Response]) -> Callable[..., Response]:
             data = request.get_json(silent=True)
             if isinstance(data, dict):
                 party_name = data.get("party_name")
-        
+
         # Fallback to active party from DB if not provided
         if not party_name:
             from app.db import active_party_name
             party_name = active_party_name()
-        
+
         logger.info("require_party_member: found party_name=%s", party_name)
-        
+
         discord = get_discord()
         if not discord.authorized:
-            return redirect(url_for("auth.login"))  # type: ignore[return-value]
+            return make_response(redirect(url_for("auth.login")))
         if not party_name or not check_party_access(party_name):
             return make_response("Not authorized", 403)
-            
+
         # Pass party_name to the function if it expects it
         if "party_name" in kwargs:
             return f(*args, **kwargs)
@@ -179,7 +206,7 @@ def require_party_member(f: Callable[..., Response]) -> Callable[..., Response]:
 
 @bp.route("/login")
 def login() -> Response:
-    return get_discord().create_session(scope=["identify", "guilds"])  # type: ignore[no-any-return]
+    return get_discord().create_session(scope=["identify", "guilds"])
 
 
 @bp.route("/callback")
@@ -196,11 +223,11 @@ def callback() -> Response:
         return make_response("OAuth state mismatch. Your session may have expired. "
                             "Please <a href='/auth/login'>log in again</a>.", 400)
     if check_access():
-        return redirect(url_for("api.party_overview", party_name="Default"))  # type: ignore[return-value]
+        return make_response(redirect(url_for("api.party_overview", party_name="Default")))
     return make_response("You are not authorized to access the Party Planner Dashboard.", 403)
 
 
 @bp.route("/logout")
 def logout() -> Response:
     get_discord().revoke()
-    return redirect(url_for("api.index"))  # type: ignore[return-value]
+    return make_response(redirect(url_for("api.index")))

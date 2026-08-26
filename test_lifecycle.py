@@ -1,13 +1,14 @@
+import os
 import subprocess
 import time
+
 import requests
-import os
-import signal
+
 
 def test_server_lifecycle():
     print("Starting server process...")
     start_time = time.time()
-    
+
     # Start the server (simulating how it's currently done)
     env = os.environ.copy()
     env["FLASK_APP"] = "app"
@@ -15,14 +16,14 @@ def test_server_lifecycle():
     env["PYTHONUNBUFFERED"] = "1"
     env["DATABASE_PATH"] = "test_lifecycle.db"
     env["TEST_MOCK_AUTH"] = "1"
-    
+
     process = subprocess.Popen(
         [".venv/bin/python3", "app.py"],
         env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL
     )
-    
+
     # Wait for startup
     startup_time = None
     for _ in range(10):
@@ -40,7 +41,7 @@ def test_server_lifecycle():
 
     # Wait a second as requested
     time.sleep(1)
-    
+
     # Terminate
     print("Terminating server...")
     terminate_start = time.time()

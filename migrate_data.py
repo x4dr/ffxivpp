@@ -1,6 +1,8 @@
-from app.db import Session, engine
-from app.models import PersonModel, PartyPerson, Party, LodestoneLink
 from sqlalchemy.orm import Session as SQLAlchemySession
+
+from app.db import Session
+from app.models import LodestoneLink, Party, PartyPerson, PersonModel
+
 
 def migrate():
     data = [
@@ -20,11 +22,11 @@ def migrate():
         all_parties = set()
         for d in data:
             all_parties.update(d["parties"])
-        
+
         for p_name in all_parties:
             if not session.query(Party).filter_by(name=p_name).first():
                 session.add(Party(name=p_name))
-        
+
         for d in data:
             person = PersonModel(name=d["name"], jobs=d["jobs"], discord_id=d["discord_id"])
             session.add(person)
@@ -32,10 +34,10 @@ def migrate():
 
             for p_name in d["parties"]:
                 session.add(PartyPerson(party_name=p_name, person_name=person.name))
-            
+
             if d["lodestone_id"]:
                 session.add(LodestoneLink(person_id=person.id, lodestone_id=d["lodestone_id"]))
-        
+
         session.commit()
         print("Data migration successful.")
     except Exception as e:

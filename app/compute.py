@@ -168,8 +168,9 @@ def compute_parties_stream(
             and c.min_utility <= n_utility <= c.max_utility
         )
 
-    # mypy: ignore the generator type — nested recursive generator
-    def dfs(idx: int, assigned: list[Job], priorities: list[int]) -> Generator:  # type: ignore[misc]
+    def dfs(
+        idx: int, assigned: list[Job], priorities: list[int]
+    ) -> Generator[_SSEEvent, None, None]:
         nonlocal explored, last_report
         explored += 1
         now = time.monotonic()

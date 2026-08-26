@@ -8,7 +8,7 @@ Helpers follow app/db.py conventions (scoped Session, try/finally remove).
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text

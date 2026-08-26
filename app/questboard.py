@@ -25,6 +25,7 @@ from flask import (
 from app.auth import check_access, get_discord, require_admin
 from core import questdb
 from core.quests import (
+    RequirementNode,
     assign_node_ids,
     build_tree,
     flatten_requirements,
@@ -45,7 +46,7 @@ def _current_user() -> tuple[str, bool]:
     return str(user.id), check_access()
 
 
-def _tree_from_stored(tree_data: dict[str, Any]):
+def _tree_from_stored(tree_data: dict[str, Any]) -> RequirementNode:
     """Rebuild a live RequirementNode tree from stored quest JSON."""
     root = build_tree(
         int(tree_data["item_id"]),
@@ -58,9 +59,7 @@ def _tree_from_stored(tree_data: dict[str, Any]):
     return root
 
 
-def _apply_children(node, children: list[dict[str, Any]]) -> None:
-    from core.quests import RequirementNode
-
+def _apply_children(node: RequirementNode, children: list[dict[str, Any]]) -> None:
     for child in children:
         c = RequirementNode(
             item_id=int(child["item_id"]),
@@ -73,7 +72,7 @@ def _apply_children(node, children: list[dict[str, Any]]) -> None:
         node.children.append(c)
 
 
-def _serialize_tree(root) -> dict[str, Any]:
+def _serialize_tree(root: RequirementNode) -> dict[str, Any]:
     out: dict[str, Any] = {
         "item_id": root.item_id,
         "name": root.name,
@@ -98,7 +97,7 @@ def _serialize_tree(root) -> dict[str, Any]:
 def board() -> Response:
     user_id, is_officer = _current_user()
     if not user_id:
-        return redirect(url_for("auth.login"))
+        return make_response(redirect(url_for("auth.login")))
     quests = questdb.list_quests([questdb.QUEST_OPEN])
     summaries = []
     for q in quests:
@@ -127,7 +126,7 @@ def board() -> Response:
 def detail(quest_id: int) -> Response:
     user_id, is_officer = _current_user()
     if not user_id:
-        return redirect(url_for("auth.login"))
+        return make_response(redirect(url_for("auth.login")))
     quest = questdb.get_quest(quest_id)
     if not quest:
         return make_response("Quest not found", 404)
@@ -153,12 +152,11 @@ def detail(quest_id: int) -> Response:
     )
 
 
-def _raw_pledges(quest_id: int):
+def _raw_pledges(quest_id: int) -> list[questdb.QuestPledge]:
     from app.db import Session
-    from core.questdb import QuestPledge
 
     try:
-        return Session.query(QuestPledge).filter_by(quest_id=quest_id).all()
+        return Session.query(questdb.QuestPledge).filter_by(quest_id=quest_id).all()
     finally:
         Session.remove()
 
@@ -180,14 +178,13 @@ def api_create() -> Response:
     quality = str(data.get("quality", "any"))
     manual_items: list[dict[str, Any]] = data.get("manual_items", []) or []
 
-    def recipe_lookup(item_id: int):
+    def recipe_lookup(item_id: int) -> None:
         # name-based catalog: only used through explicit expansion below
         return None
 
     try:
         parsed = lookup_recipe(item_name)
         root = build_tree(parsed.item_id, parsed.name, qty, lambda _i: None, quality=quality)
-        from core.quests import RequirementNode
 
         scale = qty / max(1, parsed.yield_qty)
         for iid, name, ing_qty in parsed.ingredients:
@@ -199,13 +196,10 @@ def api_create() -> Response:
         # fall back to fully manual root when the wiki cannot resolve it
         if not manual_items and not item_name:
             return make_response(jsonify({"error": "item could not be resolved"}), 400)
-        from core.quests import RequirementNode
 
         root = RequirementNode(item_id=0, name=item_name or title, qty_required=max(1, qty),
                                quality=quality, source="root")
     for m in manual_items:
-        from core.quests import RequirementNode
-
         root.children.append(
             RequirementNode(item_id=int(m.get("item_id", 0)), name=str(m["name"]),
                             qty_required=int(m.get("qty", 1)),

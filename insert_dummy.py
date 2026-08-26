@@ -1,7 +1,8 @@
 import os
+
 os.environ["DATABASE_PATH"] = "test.db"
-from app.db import init_db, Session, Party
-from sqlalchemy.exc import IntegrityError
+
+from app.db import Party, Session, init_db
 
 # Initialize and add a dummy entry
 try:

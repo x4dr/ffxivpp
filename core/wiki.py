@@ -244,7 +244,7 @@ def cached_recipe(item_name: str) -> ParsedRecipe | None:
         job=data.get("job"),
         level=data.get("level"),
         yield_qty=data.get("yield", 1),
-        ingredients=[tuple(i) for i in data.get("ingredients", [])],  # type: ignore[misc]
+        ingredients=[tuple(i) for i in data.get("ingredients", [])],
     )
 
 
@@ -284,7 +284,9 @@ def _version_key(version: str) -> tuple[int, ...]:
 
 def extract_latest_patch(wikitext: str) -> str | None:
     """Newest ``Patch X.Y`` version mentioned in *wikitext*, or None."""
-    versions = set(_PATCH_VERSION.findall(wikitext))
+    versions: set[str] = {
+        match.group(1) for match in _PATCH_VERSION.finditer(wikitext)
+    }
     if not versions:
         return None
     return max(versions, key=_version_key)
@@ -305,7 +307,7 @@ def check_and_mark_stale(fetch_fn: FetchFn = _throttled_fetch) -> bool:
         logger.info("patch detection found no versions; skipping")
         return False
 
-    from app.db import AppState
+    from app.models import AppState
 
     try:
         state = Session.query(AppState).filter_by(key="game_version").first()

@@ -90,7 +90,7 @@ def reinitialize_db() -> None:
     Session = scoped_session(session_factory)
 
 
-def init_db():
+def init_db() -> None:
     Base.metadata.create_all(engine)
     if not Session.query(Party).filter_by(name='Default').first():
         Session.add(Party(name='Default'))
@@ -133,7 +133,9 @@ def people_to_db(people_data: list[dict[str, Any]], party_name: str) -> None:
         for p in people_data:
             person = Session.query(PersonModel).filter_by(name=p["name"]).first()
             if not person:
-                person = PersonModel(name=p["name"], jobs=",".join(p["jobs"]), discord_id=p.get("discord_id"))
+                person = PersonModel(
+                    name=p["name"], jobs=",".join(p["jobs"]), discord_id=p.get("discord_id")
+                )
                 Session.add(person)
             else:
                 person.jobs = ",".join(p["jobs"])
@@ -166,7 +168,11 @@ def pool_save(people_data: list[dict[str, Any]]) -> None:
         for p in people_data:
             person = Session.query(PersonModel).filter_by(name=p["name"]).first()
             if not person:
-                Session.add(PersonModel(name=p["name"], jobs=",".join(p["jobs"]), discord_id=p.get("discord_id")))
+                Session.add(
+                    PersonModel(
+                        name=p["name"], jobs=",".join(p["jobs"]), discord_id=p.get("discord_id")
+                    )
+                )
             else:
                 person.jobs = ",".join(p["jobs"])
                 person.discord_id = p.get("discord_id")
@@ -176,7 +182,12 @@ def pool_save(people_data: list[dict[str, Any]]) -> None:
 
 def add_person_to_party(person_name: str, party_name: str) -> None:
     try:
-        if not Session.query(PartyPerson).filter_by(party_name=party_name, person_name=person_name).first():
+        exists = (
+            Session.query(PartyPerson)
+            .filter_by(party_name=party_name, person_name=person_name)
+            .first()
+        )
+        if not exists:
             Session.add(PartyPerson(party_name=party_name, person_name=person_name))
             Session.commit()
     finally:
@@ -184,14 +195,26 @@ def add_person_to_party(person_name: str, party_name: str) -> None:
 
 def remove_person_from_party(person_name: str, party_name: str) -> None:
     try:
-        Session.query(PartyPerson).filter_by(party_name=party_name, person_name=person_name).delete()
+        (
+            Session.query(PartyPerson)
+            .filter_by(party_name=party_name, person_name=person_name)
+            .delete()
+        )
         Session.commit()
     finally:
         Session.remove()
 
 def check_party_member(discord_id: str, party_name: str) -> bool:
     try:
-        member = Session.query(PartyPerson).join(PersonModel).filter(PersonModel.discord_id == discord_id, PartyPerson.party_name == party_name).first()
+        member = (
+            Session.query(PartyPerson)
+            .join(PersonModel)
+            .filter(
+                PersonModel.discord_id == discord_id,
+                PartyPerson.party_name == party_name,
+            )
+            .first()
+        )
         return member is not None
     finally:
         Session.remove()
@@ -201,7 +224,8 @@ def check_party_member(discord_id: str, party_name: str) -> bool:
 def constraints_from_db(party_name: str) -> dict[str, Any]:
     try:
         constraints = Session.query(PartyConstraint).filter_by(party_name=party_name).all()
-        out = {
+        # Values genuinely mix bools, ints and lists (see exclusions below).
+        out: dict[str, Any] = {
             "std_comp": True,
             "no_dupes": True,
             "min_selfish": 0,
@@ -211,10 +235,13 @@ def constraints_from_db(party_name: str) -> dict[str, Any]:
             "heal_mix": False,
         }
         for c in constraints:
-            val = c.value
-            if val == "True": val = True
-            elif val == "False": val = False
-            elif val.isdigit(): val = int(val)
+            val: str | bool | int = c.value
+            if val == "True":
+                val = True
+            elif val == "False":
+                val = False
+            elif isinstance(val, str) and val.isdigit():
+                val = int(val)
             out[c.key] = val
 
         excl = Session.query(PartyExclusion).filter_by(party_name=party_name).all()
@@ -287,7 +314,13 @@ def cache_character(lodestone_id: str, data: dict[str, Any]) -> None:
     import json
     from datetime import datetime
     try:
-        Session.merge(CharacterCache(lodestone_id=lodestone_id, data=json.dumps(data), fetched_at=datetime.now().isoformat()))
+        Session.merge(
+            CharacterCache(
+                lodestone_id=lodestone_id,
+                data=json.dumps(data),
+                fetched_at=datetime.now().isoformat(),
+            )
+        )
         Session.commit()
     finally:
         Session.remove()
@@ -296,8 +329,9 @@ def get_cached_character(lodestone_id: str) -> dict[str, Any] | None:
     import json
     try:
         row = Session.query(CharacterCache).filter_by(lodestone_id=lodestone_id).first()
-        if not row: return None
-        data = json.loads(row.data)
+        if not row:
+            return None
+        data: dict[str, Any] = json.loads(row.data)
         data["fetched_at"] = row.fetched_at
         return data
     finally:
@@ -307,10 +341,16 @@ def get_character_data(person_name: str) -> dict[str, Any] | None:
     import json
     try:
         person = Session.query(PersonModel).filter_by(name=person_name).first()
-        if not person or not person.lodestone: return None
-        cache = Session.query(CharacterCache).filter_by(lodestone_id=person.lodestone.lodestone_id).first()
-        if not cache: return None
-        data = json.loads(cache.data)
+        if not person or not person.lodestone:
+            return None
+        cache = (
+            Session.query(CharacterCache)
+            .filter_by(lodestone_id=person.lodestone.lodestone_id)
+            .first()
+        )
+        if not cache:
+            return None
+        data: dict[str, Any] = json.loads(cache.data)
         data["character_name"] = person.lodestone.character_name
         return data
     finally:
@@ -319,14 +359,24 @@ def get_character_data(person_name: str) -> dict[str, Any] | None:
 def add_scraper_task(lodestone_id: str, priority: int = 1) -> None:
     from datetime import datetime
     try:
-        Session.merge(ScraperTask(lodestone_id=lodestone_id, priority=priority, created_at=datetime.now().isoformat()))
+        Session.merge(
+            ScraperTask(
+                lodestone_id=lodestone_id,
+                priority=priority,
+                created_at=datetime.now().isoformat(),
+            )
+        )
         Session.commit()
     finally:
         Session.remove()
 
 def get_next_scraper_task() -> dict[str, Any] | None:
     try:
-        task = Session.query(ScraperTask).order_by(ScraperTask.priority.desc(), ScraperTask.created_at.asc()).first()
+        task = (
+            Session.query(ScraperTask)
+            .order_by(ScraperTask.priority.desc(), ScraperTask.created_at.asc())
+            .first()
+        )
         return {"lodestone_id": task.lodestone_id, "priority": task.priority} if task else None
     finally:
         Session.remove()
@@ -341,14 +391,29 @@ def delete_scraper_task(lodestone_id: str) -> None:
 def get_lodestone_link(person_id: int) -> dict[str, Any] | None:
     try:
         link = Session.query(LodestoneLink).filter_by(person_id=person_id).first()
-        return {"lodestone_id": link.lodestone_id, "character_name": link.character_name, "fetched_at": link.fetched_at} if link else None
+        if not link:
+            return None
+        return {
+            "lodestone_id": link.lodestone_id,
+            "character_name": link.character_name,
+            "fetched_at": link.fetched_at,
+        }
     finally:
         Session.remove()
 
-def set_lodestone_link(person_id: int, lodestone_id: str, character_name: str | None = None) -> None:
+def set_lodestone_link(
+    person_id: int, lodestone_id: str, character_name: str | None = None
+) -> None:
     from datetime import datetime
     try:
-        Session.merge(LodestoneLink(person_id=person_id, lodestone_id=lodestone_id, character_name=character_name, fetched_at=datetime.now().isoformat()))
+        Session.merge(
+            LodestoneLink(
+                person_id=person_id,
+                lodestone_id=lodestone_id,
+                character_name=character_name,
+                fetched_at=datetime.now().isoformat(),
+            )
+        )
         Session.commit()
     finally:
         Session.remove()
@@ -389,8 +454,10 @@ def active_party_name() -> str:
 def switch_party(name: str) -> None:
     try:
         state = Session.query(AppState).filter_by(key='active_party').first()
-        if state: state.value = name
-        else: Session.add(AppState(key='active_party', value=name))
+        if state:
+            state.value = name
+        else:
+            Session.add(AppState(key='active_party', value=name))
         Session.commit()
     finally:
         Session.remove()
@@ -430,19 +497,31 @@ def set_party_exclusions(party_name: str, exclusions: list[list[str]]) -> None:
 
 def get_party_members(party_name: str) -> list[dict[str, Any]]:
     try:
-        results = Session.query(PartyPerson).options(joinedload(PartyPerson.person).joinedload(PersonModel.lodestone)).filter_by(party_name=party_name).all()
+        results = (
+            Session.query(PartyPerson)
+            .options(joinedload(PartyPerson.person).joinedload(PersonModel.lodestone))
+            .filter_by(party_name=party_name)
+            .all()
+        )
         members = []
         for pp in results:
             char_data = None
             if pp.person.lodestone:
-                cache = Session.query(CharacterCache).filter_by(lodestone_id=pp.person.lodestone.lodestone_id).first()
-                if cache: char_data = {"fetched_at": cache.fetched_at}
+                cache = (
+                    Session.query(CharacterCache)
+                    .filter_by(lodestone_id=pp.person.lodestone.lodestone_id)
+                    .first()
+                )
+                if cache:
+                    char_data = {"fetched_at": cache.fetched_at}
             members.append({
                 "id": pp.person.id,
                 "name": pp.person.name,
                 "jobs": [j for j in (pp.person.jobs or "").split(",") if j],
                 "lodestone_id": pp.person.lodestone.lodestone_id if pp.person.lodestone else None,
-                "character_name": pp.person.lodestone.character_name if pp.person.lodestone else None,
+                "character_name": (
+                    pp.person.lodestone.character_name if pp.person.lodestone else None
+                ),
                 "fetched_at": char_data["fetched_at"] if char_data else None
             })
         return members
@@ -451,13 +530,23 @@ def get_party_members(party_name: str) -> list[dict[str, Any]]:
 
 def get_parties_for_lodestone_id(lodestone_id: str) -> list[dict[str, Any]]:
     try:
-        results = Session.query(PartyPerson).join(PartyPerson.person).join(PersonModel.lodestone).filter(LodestoneLink.lodestone_id == lodestone_id).all()
+        results = (
+            Session.query(PartyPerson)
+            .join(PartyPerson.person)
+            .join(PersonModel.lodestone)
+            .filter(LodestoneLink.lodestone_id == lodestone_id)
+            .all()
+        )
         party_names = {r.party_name for r in results}
         parties = Session.query(Party).filter(Party.name.in_(party_names)).all()
         output = []
         for p in parties:
             if p.home_channel_id and p.home_message_id:
-                output.append({'channel_id': p.home_channel_id, 'message_id': p.home_message_id, 'name': p.name})
+                output.append({
+                    'channel_id': p.home_channel_id,
+                    'message_id': p.home_message_id,
+                    'name': p.name,
+                })
         return output
     finally:
         Session.remove()

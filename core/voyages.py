@@ -97,7 +97,7 @@ def load_pack(filename: str | None = None) -> dict[str, Any]:
             raise VoyageDataError(f"no .json data packs in {base}")
         path = candidates[-1]
     try:
-        pack = json.loads(path.read_text(encoding="utf-8"))
+        pack: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise VoyageDataError(f"invalid JSON in {path.name}: {exc}") from exc
     validate_pack(pack)
@@ -144,7 +144,6 @@ def predict_voyage(
     for sid in route["sector_ids"]:
         sector = sector_by_id[sid]
         for band in sector.get("surveillance_thresholds", []):
-            entry = {"sector": sid, "threshold": band["min_surveillance"]}
             if surveillance >= band["min_surveillance"]:
                 for item in band["loot"]:
                     scaled = dict(item)

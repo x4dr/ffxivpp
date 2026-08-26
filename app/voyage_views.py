@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from flask import Blueprint, Response, make_response, redirect, render_template, url_for
 
@@ -16,7 +17,7 @@ bp = Blueprint("voyages", __name__, url_prefix="/voyages")
 def index() -> Response:
     discord = get_discord()
     if not getattr(discord, "authorized", False):
-        return redirect(url_for("auth.login"))
+        return make_response(redirect(url_for("auth.login")))
     try:
         pack = load_pack()
     except VoyageDataError as exc:
@@ -50,7 +51,7 @@ def index() -> Response:
     )
 
 
-def request_route(routes: list[dict]) -> str | None:
+def request_route(routes: list[dict[str, Any]]) -> str | None:
     from flask import request
 
     requested = request.args.get("route")

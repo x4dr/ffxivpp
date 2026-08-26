@@ -14,7 +14,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 
 import asyncio
 import os
-import random
 import re
 from datetime import UTC, datetime
 from typing import Any
@@ -27,10 +26,10 @@ from app.compute import JOBS, JOBS_BY_ID, get_priority, parse_job_id
 from app.db import (
     Session,
     add_role_id,
-    remove_role_id,
     get_lodestone_link,
+    remove_role_id,
 )
-from app.models import AppState, LodestoneLink, PartyPerson, Person, Party
+from app.models import AppState, LodestoneLink, Party, PartyPerson, Person
 
 VALID_JOBS = {j.id for j in JOBS}
 JOB_NAMES = {j.id: j.name for j in JOBS}
@@ -90,8 +89,8 @@ class PartyBot(discord.Client):
     async def scraper_loop(self) -> None:
         """Background loop to refresh character data with optimized DB locking."""
         from app.db import (
-            cache_character,
             Session,
+            cache_character,
             delete_scraper_task,
             get_next_scraper_task,
             get_parties_for_lodestone_id,
@@ -99,7 +98,6 @@ class PartyBot(discord.Client):
             update_lodestone_fetched_at,
         )
         from app.lodestone import fetch_character
-        from app.models import LodestoneLink
 
         loop = asyncio.get_event_loop()
         await asyncio.sleep(10)
@@ -250,7 +248,7 @@ def _build_job_list(jobs: list[str]) -> str:
     parts: list[str] = []
     # Map roles to their display names
     role_map = {r: label for r, label, _ in ROLES}
-    
+
     for entry in jobs:
         jid = parse_job_id(entry)
         # Check job names first
@@ -514,7 +512,7 @@ class RecheckButton(Button):
         super().__init__(label="Recheck Lodestone", style=discord.ButtonStyle.secondary, custom_id="recheck_lodestone")
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        from app.db import add_scraper_task, get_lodestone_link, people_pool
+        from app.db import add_scraper_task, people_pool
 
         user_id = str(interaction.user.id)
         person = next((p for p in people_pool() if p.get("discord_id") == user_id), None)

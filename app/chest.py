@@ -73,7 +73,12 @@ def _generate_suggestions(snapshot_id: int, items: list[dict[str, Any]]) -> None
             if not matches:
                 continue
             seen: set[str] = set()
-            unique = [m for m in matches if not (m["node"] in seen or seen.add(m["node"]))]
+            unique: list[dict[str, Any]] = []
+            for m in matches:
+                node = str(m["node"])
+                if node not in seen:
+                    seen.add(node)
+                    unique.append(m)
             from core.questdb import QuestEvent
 
             Session.add(
@@ -122,5 +127,5 @@ def paste_form() -> Response:
     if not getattr(discord, "authorized", False):
         from flask import redirect, url_for
 
-        return redirect(url_for("auth.login"))
+        return make_response(redirect(url_for("auth.login")))
     return make_response(render_template("chest_paste.html"))

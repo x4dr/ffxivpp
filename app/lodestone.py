@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import requests as http
-from bs4 import BeautifulSoup as BS
+from bs4 import BeautifulSoup
 
 from app.db import cache_character, get_cached_character
 
@@ -83,7 +83,7 @@ def _scrape_lodestone(lodestone_id: str) -> dict[str, Any] | None:
         if resp.status_code != 200:
             logger.warning("Lodestone returned %s for %s", resp.status_code, lodestone_id)
             return None
-        soup = BS(resp.text, "html.parser")
+        soup = BeautifulSoup(resp.text, "html.parser")
 
         name_el = soup.select_one(".frame__chara__name")
         char_name = name_el.text.strip() if name_el else "Unknown"
@@ -102,6 +102,10 @@ def _scrape_lodestone(lodestone_id: str) -> dict[str, Any] | None:
                 if not img:
                     continue
                 raw = img.get("data-tooltip") or img.get("alt") or ""
+                if not isinstance(raw, str):
+                    # Non-string tooltip data cannot be parsed; fail the scrape
+                    # the same way the previous .split() crash did.
+                    raise TypeError(f"unexpected job tooltip value: {raw!r}")
                 jid = LODESTONE_TO_ID.get(_normalise_job_name(raw.split("/")[0].strip()))
                 if not jid:
                     continue
@@ -111,10 +115,10 @@ def _scrape_lodestone(lodestone_id: str) -> dict[str, Any] | None:
                     jobs[jid] = {"level": level, "ilvl": None}
 
         # Average item level — fetch equipment tooltips in parallel for valid slots
-        GEAR_SLOTS = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12]
+        gear_slots = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12]
         avg_ilvl = None
         ilvls = []
-        tip_urls = [f"{url}equipment/tooltip/{s}" for s in GEAR_SLOTS]
+        tip_urls = [f"{url}equipment/tooltip/{s}" for s in gear_slots]
         with ThreadPoolExecutor(max_workers=8) as pool:
             fut_map = {
                 pool.submit(http.get, u, timeout=10, headers={"User-Agent": "Mozilla/5.0"}): u
@@ -124,7 +128,7 @@ def _scrape_lodestone(lodestone_id: str) -> dict[str, Any] | None:
                 try:
                     resp2 = fut.result()
                     if resp2.status_code == 200:
-                        tsoup = BS(resp2.text, "html.parser")
+                        tsoup = BeautifulSoup(resp2.text, "html.parser")
                         lvl_el = tsoup.select_one(".db-tooltip__item__level")
                         if lvl_el:
                             m = re.search(r"(\d+)", lvl_el.text)

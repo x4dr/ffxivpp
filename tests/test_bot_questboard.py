@@ -11,7 +11,7 @@ import pytest
 os.environ.setdefault("DATABASE_PATH", "/tmp/.ffxivpp_bot_test.db")
 
 from core import questdb  # noqa: E402
-from core.quests import assign_node_ids, build_tree  # noqa: E402
+from core.quests import assign_node_ids  # noqa: E402
 
 
 @pytest.fixture
@@ -89,7 +89,6 @@ class TestReminderLoopData:
     def test_daily_clears_weekday(self, quest_id: int) -> None:
         questdb.upsert_reminder_optin(quest_id, "222", "daily", 9, 15)
         from app.db import Session
-
         from core.questdb import ReminderOptIn
 
         try:

@@ -1,26 +1,31 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
 from collections.abc import Generator
 from pathlib import Path
 
 from flask import (
     Blueprint,
     Response,
+    current_app,
     jsonify,
     make_response,
+    redirect,
     request,
     send_from_directory,
     stream_with_context,
-    redirect,
     url_for,
-    current_app,
 )
 
-from app.auth import get_discord, require_admin, require_party_member, check_access, _bot_api, _guild_id
-from app.compute import JOBS, JOBS_BY_ID, compute_parties, compute_parties_stream
+from app.auth import (
+    _bot_api,
+    _guild_id,
+    check_access,
+    get_discord,
+    require_admin,
+    require_party_member,
+)
+from app.compute import JOBS, JOBS_BY_ID, compute_parties_stream
 from app.db import (
     active_party_name,
     add_person_to_party,
@@ -56,24 +61,30 @@ def api_me() -> Response:
     guild_id = _guild_id()
     # Use fallback if _payload is missing (e.g. in test mode)
     name = getattr(user, "_payload", {}).get("global_name") or getattr(user, "name", "Unknown")
-    
+
     if guild_id:
         member = _bot_api("GET", f"/guilds/{guild_id}/members/{user_id}")
-        if member:
+        if isinstance(member, dict):
             name = (
                 member.get("nick")
                 or member.get("user", {}).get("global_name")
                 or name
             )
 
-    return jsonify(
-        {"id": user_id, "name": name, "avatar": getattr(user, "avatar_url", ""), "is_admin": check_access()}
-    )
+    return jsonify({
+        "id": user_id,
+        "name": name,
+        "avatar": getattr(user, "avatar_url", ""),
+        "is_admin": check_access(),
+    })
 
 
 @bp.route("/api/jobs")
 def api_jobs() -> Response:
-    return jsonify([{"id": j.id, "name": j.name, "role": j.role, "sub": j.sub, "dps_type": j.dps_type} for j in JOBS])
+    return jsonify([
+        {"id": j.id, "name": j.name, "role": j.role, "sub": j.sub, "dps_type": j.dps_type}
+        for j in JOBS
+    ])
 
 
 @bp.route("/api/people", methods=["GET", "POST"])
@@ -99,13 +110,13 @@ def api_constraints(party_name: str) -> Response:
     if not check_access():
         return make_response(jsonify({"error": "unauthorized"}), 403)
     data = request.get_json(force=True)
-    
+
     current_app.logger.info(f"DEBUG: api_constraints party_name={party_name}, data={data}")
-    
+
     if not isinstance(data, dict):
         current_app.logger.error("Data is not a dict")
         return make_response(jsonify({"error": "expected object"}), 400)
-    
+
     try:
         constraints_to_db(data, party_name)
         return jsonify({"ok": True})
@@ -125,7 +136,7 @@ def api_exclusions(party_name: str) -> Response:
     exclusions_data = data.get("exclusions", data) if isinstance(data, dict) else data
     if not isinstance(exclusions_data, list):
         return make_response(jsonify({"error": "expected array"}), 400)
-    
+
     set_party_exclusions(party_name, exclusions_data)
     return jsonify({"ok": True})
 
@@ -143,7 +154,8 @@ def api_compute_stream(party_name: str) -> Response:
     errors = []
     for p in raw:
         for entry in p.get("jobs", []):
-            if not entry: continue
+            if not entry:
+                continue
             jid = entry.split(":")[0].lower()
             if jid not in JOBS_BY_ID:
                 errors.append(f"Illegal job '{jid}' for {p['name']}")
@@ -159,7 +171,7 @@ def api_compute_stream(party_name: str) -> Response:
     def _generate() -> Generator[str, None, None]:
         # analyze_constraints is not actually used here
         # Removing the import and call to fix the test failure.
-        
+
         for event_type, data in compute_parties_stream(people, constraints, collapse=collapse):
             yield f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
@@ -172,7 +184,7 @@ def api_members() -> Response:
     if not guild_id:
         return make_response(jsonify({"error": "no guild configured"}), 400)
     data = _bot_api("GET", f"/guilds/{guild_id}/members?limit=1000")
-    if not data:
+    if not isinstance(data, list) or not data:
         return make_response(jsonify({"error": "failed to fetch members"}), 500)
     members = [
         {
@@ -307,7 +319,9 @@ def api_polls() -> Response:
                 if jid in job_map:
                     level = job_map[jid].get("level")
             lvl_str = f" (lv.{level})" if level else ""
-            name_lines.append(f"{role_emoji.get(m['role'], '▪')} **{m['name']}**{lvl_str} — {m['job']}")
+            name_lines.append(
+                f"{role_emoji.get(m['role'], '▪')} **{m['name']}**{lvl_str} — {m['job']}"
+            )
 
         embed_fields.append({
             "name": f"Party {i + 1}  —  Score {party.get('score', '?')}",
@@ -352,7 +366,7 @@ def api_channels() -> Response:
     if not guild_id:
         return make_response(jsonify({"error": "no guild configured"}), 400)
     data = _bot_api("GET", f"/guilds/{guild_id}/channels")
-    if not data:
+    if not isinstance(data, list) or not data:
         return make_response(jsonify({"error": "failed to fetch channels"}), 500)
     channels = [{"id": c["id"], "name": c["name"]} for c in data if c.get("type") == 0]
     return jsonify(channels)
@@ -367,9 +381,9 @@ def party_overview(party_name: str) -> Response:
 @bp.route("/party")
 @bp.route("/party/")
 def party_index() -> Response:
-    return redirect(url_for("api.party_overview", party_name="Default"))
+    return make_response(redirect(url_for("api.party_overview", party_name="Default")))
 
 
 @bp.route("/")
 def index() -> Response:
-    return redirect(url_for("api.party_overview", party_name="Default"))
+    return make_response(redirect(url_for("api.party_overview", party_name="Default")))
