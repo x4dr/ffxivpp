@@ -13,7 +13,13 @@ def quest_id() -> int:
         title="300 popcorn",
         description="keep the chest stocked",
         created_by="111",
-        root_tree={"item_id": 0, "name": "popcorn", "qty_required": 300, "quality": "any", "children": []},
+        root_tree={
+            "item_id": 0,
+            "name": "popcorn",
+            "qty_required": 300,
+            "quality": "any",
+            "children": [],
+        },
     )
 
 
