@@ -25,7 +25,24 @@
         <span class="muted">(sector {{ entry.sector }})</span></li>
       {% endfor %}
     </ul>
+    {% if job %}
+    <p style="margin-bottom:0">
+      <button onclick="openVoyageJob()">Open as job</button>
+      <span class="muted">creates a quest for {{ job.item_name }} x{{ job.qty }}</span>
+    </p>
+    {% endif %}
   </div>
   {% endif %}
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if job %}
+<script>
+const VOYAGE_JOB = {{ job|tojson }};
+async function openVoyageJob() {
+  const data = await postJson('/quests/api/create', VOYAGE_JOB);
+  if (data && data.quest_id) location.href = '/quests/' + data.quest_id;
+}
+</script>
 {% endif %}
 {% endblock %}

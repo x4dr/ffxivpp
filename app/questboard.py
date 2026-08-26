@@ -219,12 +219,16 @@ def api_create() -> Response:
                             quality=str(m.get("quality", "any")), source="manual")
         )
     assign_node_ids(root)
+    voyage_route = data.get("voyage_route")
+    voyage_date = data.get("voyage_date")
     qid = questdb.create_quest(
         title=title,
         description=str(data.get("description", "")),
         created_by=user_id,
         root_tree=json.loads(json.dumps(_serialize_tree(root))),
         deadline=data.get("deadline"),
+        voyage_route=str(voyage_route)[:200] if voyage_route else None,
+        voyage_date=str(voyage_date)[:32] if voyage_date else None,
     )
     del is_officer, recipe_lookup
     return jsonify({"ok": True, "quest_id": qid})

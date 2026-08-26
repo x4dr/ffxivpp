@@ -1,8 +1,9 @@
-"""Voyage pages: fleet config + prediction view (read-only for now)."""
+"""Voyage pages: fleet config + prediction view; "Open as job" quest link."""
 
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 from typing import Any
 
 from flask import Blueprint, Response, make_response, redirect, render_template, url_for
@@ -11,6 +12,25 @@ from app.auth import get_discord
 from core.voyages import VoyageDataError, load_pack, predict_voyage
 
 bp = Blueprint("voyages", __name__, url_prefix="/voyages")
+
+
+def job_payload(prediction: dict[str, Any]) -> dict[str, Any] | None:
+    """JSON body for POST /quests/api/create from a predicted voyage.
+
+    Root item = first predicted loot entry at its scaled max quantity.
+    None when the prediction yields no loot (nothing to open a job for).
+    """
+    loot = prediction.get("loot") or []
+    if not loot:
+        return None
+    first = loot[0]
+    return {
+        "title": f"Voyage: {prediction['route']}",
+        "item_name": str(first["item"]),
+        "qty": int(first["qty_scaled"][-1]),
+        "voyage_route": str(prediction["route"]),
+        "voyage_date": datetime.now(UTC).date().isoformat(),
+    }
 
 
 @bp.route("/")
@@ -46,6 +66,7 @@ def index() -> Response:
             routes=[r["name"] for r in routes],
             selected=selected,
             prediction=prediction,
+            job=job_payload(prediction) if prediction else None,
             error=None,
         )
     )

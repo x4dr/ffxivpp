@@ -90,8 +90,30 @@ def reinitialize_db() -> None:
     Session = scoped_session(session_factory)
 
 
+# quests.voyage_route / voyage_date were added after the original schema;
+# SQLite has no cheap "ADD COLUMN IF NOT EXISTS", so each ALTER is attempted
+# in its own transaction and duplicate-column failures are ignored.
+_VOYAGE_COLUMN_MIGRATIONS = (
+    "ALTER TABLE quests ADD COLUMN voyage_route VARCHAR(200)",
+    "ALTER TABLE quests ADD COLUMN voyage_date VARCHAR(32)",
+)
+
+
+def _ensure_quest_voyage_columns() -> None:
+    """Best-effort idempotent migration: add nullable quest voyage columns."""
+    from sqlalchemy.exc import OperationalError
+
+    for ddl in _VOYAGE_COLUMN_MIGRATIONS:
+        try:
+            with engine.begin() as conn:
+                conn.exec_driver_sql(ddl)
+        except OperationalError:
+            pass  # column already exists
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
+    _ensure_quest_voyage_columns()
     if not Session.query(Party).filter_by(name='Default').first():
         Session.add(Party(name='Default'))
     if not Session.query(AppState).filter_by(key='active_party').first():
