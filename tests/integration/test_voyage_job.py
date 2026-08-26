@@ -17,9 +17,16 @@ PACKS = Path(__file__).resolve().parents[2] / "data" / "voyages"
 
 
 @pytest.fixture
-def voyage_pack(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Point VOYAGE_DATA_DIR at the committed synthetic sample pack."""
-    monkeypatch.setenv("VOYAGE_DATA_DIR", str(PACKS))
+def voyage_pack(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Point VOYAGE_DATA_DIR at an isolated dir holding only SAMPLE.json.
+
+    load_pack() picks the newest *.json in the dir; the real-data pack committed
+    alongside SAMPLE.json would otherwise win and 'Sample Loop' wouldn't exist.
+    """
+    pack_dir = tmp_path / "voyages"
+    pack_dir.mkdir()
+    (pack_dir / "SAMPLE.json").write_text((PACKS / "SAMPLE.json").read_text())
+    monkeypatch.setenv("VOYAGE_DATA_DIR", str(pack_dir))
 
 
 def _manual_root_tree() -> dict[str, Any]:
