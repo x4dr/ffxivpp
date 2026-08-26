@@ -3,6 +3,9 @@
 {% block content %}
 <p><a href="/quests/">← Questboard</a></p>
 <h1>{{ quest.title }} {% if quest.status != 'open' %}<span class="chip {{ 'done' if quest.status == 'fulfilled' }}">{{ quest.status }}</span>{% endif %}</h1>
+{% if quest.voyage_route %}
+<p><span class="chip">Voyage: {{ quest.voyage_route }}{% if quest.voyage_date %} ({{ quest.voyage_date }}){% endif %}</span></p>
+{% endif %}
 {% if quest.description %}<p>{{ quest.description }}</p>{% endif %}
 <p class="muted">by {{ quest.created_by }} · created {{ quest.created_at|dt }}
   {%- if quest.deadline %} · <strong>due {{ quest.deadline }}</strong>{% endif %}</p>

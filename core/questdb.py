@@ -54,6 +54,8 @@ class Quest(Base):
     tree_json: Mapped[str] = mapped_column(Text, nullable=False)
     discord_thread_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     discord_message_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    voyage_route: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    voyage_date: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     pledges_rel: Mapped[list[QuestPledge]] = relationship(
         back_populates="quest", cascade="all, delete-orphan"
@@ -164,6 +166,8 @@ def create_quest(
     created_by: str,
     root_tree: dict[str, Any],
     deadline: str | None = None,
+    voyage_route: str | None = None,
+    voyage_date: str | None = None,
 ) -> int:
     """Insert a quest with a serialized requirement tree; returns its id."""
     now = _now()
@@ -177,6 +181,8 @@ def create_quest(
             updated_at=now,
             deadline=deadline,
             tree_json=json.dumps(root_tree),
+            voyage_route=voyage_route,
+            voyage_date=voyage_date,
         )
         Session.add(quest)
         Session.flush()
@@ -210,6 +216,8 @@ def get_quest(quest_id: int) -> dict[str, Any] | None:
             "tree": json.loads(q.tree_json),
             "discord_thread_id": q.discord_thread_id,
             "discord_message_id": q.discord_message_id,
+            "voyage_route": q.voyage_route,
+            "voyage_date": q.voyage_date,
         }
     finally:
         Session.remove()
