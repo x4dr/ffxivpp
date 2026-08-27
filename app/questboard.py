@@ -431,10 +431,12 @@ def _universalis_json(path: str) -> dict[str, Any]:
 
 
 def _resolve_item_id(name: str) -> int | None:
-    """Item id via the local item_catalog first, then the wiki recipe cache/net.
+    """Item id via the local item_catalog, then the wiki, then garlandtools search.
 
-    Reuses core.wiki's cache-first ``lookup_recipe`` (same resolver quest
-    creation uses) rather than any external search endpoint.
+    The wiki only covers crafting pages, so gatherable/vendor items (ores,
+    shards, mob drops) fall through to garlandtools' free name search.
+    Exact-name matches are required to avoid picking e.g. "Approved Grade 2
+    Skybuilders' Cobalt Ore" for "Cobalt Ore".
     """
     try:
         row = Session.query(ItemCatalog).filter(ItemCatalog.name.ilike(name)).first()
@@ -444,9 +446,21 @@ def _resolve_item_id(name: str) -> int | None:
         Session.remove()
     try:
         return int(lookup_recipe(name).item_id)
+    except Exception:
+        pass  # not a craftable — fall through to garlandtools
+    try:
+        url = "https://www.garlandtools.org/api/search.php?text=" + urllib.parse.quote(name)
+        req = urllib.request.Request(url, headers={"User-Agent": "ffxivpp/0.1"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            results = json.loads(resp.read().decode())
+        for hit in results:
+            obj = hit.get("obj", {})
+            if hit.get("type") == "item" and obj.get("n", "").lower() == name.strip().lower():
+                return int(hit["id"])
     except Exception as exc:  # noqa: BLE001 - log-and-degrade policy
-        logger.warning("item id resolution failed for %r: %s", name, exc)
-        return None
+        logger.warning("garlandtools item-id search failed for %r: %s", name, exc)
+    logger.info("no item id resolved for %r; degrading to no price hint", name)
+    return None
 
 
 def _market_entry(raw: dict[str, Any], item_id: int) -> dict[str, Any]:
