@@ -16,15 +16,16 @@
     {% for s in statuses recursive %}
     <li>
       <span class="rowline">
-        <span class="chip">{{ s.name }}</span> x{{ s.required }}
+        <span class="chip">{{ s.name }}</span>
+        <span class="qty">x{{ s.required }}</span>
         <span class="muted price-hint" data-item-name="{{ s.name }}" data-quality="{{ s.quality }}"></span>
         {% if s.quality == 'hq' %}<span class="chip hq">HQ</span>{% endif %}
         {% if s.fulfilled %}<span class="chip done">done</span>
         {% elif s.pledged > 0 %}<span class="chip">{{ s.pledged }} pledged</span>{% endif %}
+        <span class="bar" style="flex:1 1 8rem"><span style="width:{{ ((s.turned_in / s.required) * 100) | round | int }}%"></span></span>
         {% if not s.fulfilled %}
           <button onclick="pledge('{{ s.node_id }}')">Pledge</button>
         {% endif %}
-        <span class="bar" style="flex:1 1 8rem"><span style="width:{{ ((s.turned_in / s.required) * 100) | round | int }}%"></span></span>
       </span>
       {% if s.children is defined and s.children %}<ul class="tree">{{ loop(s.children) }}</ul>{% endif %}
     </li>
