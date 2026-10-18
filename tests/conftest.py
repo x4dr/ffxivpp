@@ -23,6 +23,9 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 # from _get_database_url().  We set it to a harmless path; the real test engine
 # is installed below via set_engine_for_tests("sqlite://") so no file is created.
 os.environ["DATABASE_PATH"] = "/tmp/.ffxivpp_test_init.db"
+# CI has no .env, and create_app refuses to start without a secret. Tests never
+# use the value for anything real.
+os.environ.setdefault("FLASK_SECRET_KEY", "test-secret-key")
 
 from app import create_app  # noqa: E402 -- DATABASE_PATH must be set first (note above)
 from app.db import (  # noqa: E402 -- same: app.db reads DATABASE_PATH at import time

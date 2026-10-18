@@ -6,6 +6,7 @@ export TEST_MOCK_AUTH="1"
 export FLASK_APP="app"
 export FLASK_ENV="testing"
 export PYTHONUNBUFFERED="1"
+export FLASK_SECRET_KEY="${FLASK_SECRET_KEY:-test-secret-key}"
 export TEST_SERVER_URL="http://127.0.0.1:7111"
 
 # Cleanup function
@@ -47,4 +48,4 @@ done
 
 # Run tests
 echo "Running tests..."
-uv run pytest tests/e2e/test_app.py
+uv run pytest tests/e2e

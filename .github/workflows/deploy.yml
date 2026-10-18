@@ -13,6 +13,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync
+      - name: Install Playwright Chromium
+        run: uv run playwright install --with-deps chromium
       - run: uv run pytest
 
   deploy:

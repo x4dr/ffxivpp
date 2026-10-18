@@ -17,3 +17,5 @@ data/trainer/
 
 data/trainer.db
 data/trainer.db-*
+*.init.lock
+test_e2e*.db*

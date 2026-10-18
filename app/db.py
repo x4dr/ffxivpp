@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import fcntl
 import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -41,7 +44,11 @@ def _apply_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
 
 
 def _create_engine(url: str) -> Engine:
-    e = create_engine(url, connect_args={"check_same_thread": False}, echo=False)
+    e = create_engine(
+        url,
+        connect_args={"check_same_thread": False, "timeout": 30},
+        echo=False,
+    )
     event.listen(e, "connect", _apply_sqlite_pragma)
     return e
 
@@ -111,18 +118,54 @@ def _ensure_quest_voyage_columns() -> None:
             pass  # column already exists
 
 
+@contextmanager
+def _init_lock() -> Iterator[None]:
+    """Serialize database initialization across gunicorn workers.
+
+    Every worker imports the app and calls ``init_db`` at the same moment.
+    ``create_all`` checks for each table before creating it, so two workers can
+    both see a missing table and one then fails with "table already exists".
+    A file next to the database is the lock; the OS releases it if a worker
+    dies. Tests with an in-memory engine are single-process and skip it.
+    """
+    db_path = os.environ.get("DATABASE_PATH")
+    if _engine_override is not None or not db_path:
+        yield
+        return
+
+    lock_path = Path(f"{db_path}.init.lock")
+    try:
+        handle = lock_path.open("a")
+    except OSError:
+        # A lock we cannot create must not stop the app from booting.
+        yield
+        return
+
+    with handle:
+        try:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        except OSError:
+            yield
+            return
+        try:
+            yield
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
 def init_db() -> None:
-    Base.metadata.create_all(engine)
-    _ensure_quest_voyage_columns()
-    if not Session.query(Party).filter_by(name='Default').first():
-        Session.add(Party(name='Default'))
-    if not Session.query(AppState).filter_by(key='active_party').first():
-        Session.add(AppState(key='active_party', value='Default'))
-    if os.environ.get("FLASK_ENV") == "testing":
-        if not Session.query(AppState).filter_by(key='bot_owner_id').first():
-            Session.add(AppState(key='bot_owner_id', value='12345'))
-    Session.commit()
-    Session.remove()
+    with _init_lock():
+        Base.metadata.create_all(engine)
+        _ensure_quest_voyage_columns()
+        if not Session.query(Party).filter_by(name='Default').first():
+            Session.add(Party(name='Default'))
+        if not Session.query(AppState).filter_by(key='active_party').first():
+            Session.add(AppState(key='active_party', value='Default'))
+        if os.environ.get("FLASK_ENV") == "testing":
+            if not Session.query(AppState).filter_by(key='bot_owner_id').first():
+                Session.add(AppState(key='bot_owner_id', value='12345'))
+        Session.commit()
+        Session.remove()
 
 def close_db(e: Any = None) -> None:
     Session.remove()
