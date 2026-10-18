@@ -12,8 +12,11 @@ Design documents by area. Implementation plans live in `../plans/`.
 | [integrations-chest-plugin.md](integrations-chest-plugin.md) | FC chest visibility: Allagan interim flow + Dalamud mini-plugin experiment |
 | [interop-teamcraft.md](interop-teamcraft.md) | Teamcraft/Artisan link-out and list import/export |
 | [maintenance.md](maintenance.md) | Party planner maintenance mode, TODO.md dispositions, future areas |
+| [trainer.md](trainer.md) | Keybind trainer: browser-side files, optional account save, server surface |
+| [trainer-data-formats.md](trainer-data-formats.md) | Verified KEYBIND.DAT / HOTBAR.DAT formats and key ids |
 
 ## Status
 
 - Questboard: **design agreed 2026-08**, see docs, implementation not started.
 - Party planner (compute, home-channel embed): shipped, frozen in maintenance mode.
+- Keybind trainer: shipped at `/trainer/`; browser-only by default, optional Discord account save.

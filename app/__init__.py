@@ -67,6 +67,9 @@ def create_app(config_override: dict[str, Any] | None = None) -> Flask:
     from app.chest import bp as chest_bp
     app.register_blueprint(chest_bp)
 
+    from app.trainer.views import bp as trainer_bp
+    app.register_blueprint(trainer_bp)
+
     with app.app_context():
         init_db()
 

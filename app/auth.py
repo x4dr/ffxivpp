@@ -204,8 +204,26 @@ def require_party_member(f: Callable[..., Response]) -> Callable[..., Response]:
     return decorated
 
 
+def _safe_next(value: str | None) -> str | None:
+    """A same-site path to return to after login, or None.
+
+    Rejects absolute URLs and the //host form, so a crafted login link cannot
+    bounce a user off the site.
+    """
+    if not value or not value.startswith("/"):
+        return None
+    if value.startswith("//") or value.startswith("/\\"):
+        return None
+    return value
+
+
 @bp.route("/login")
 def login() -> Response:
+    target = _safe_next(request.args.get("next"))
+    if target:
+        session["after_login"] = target
+    else:
+        session.pop("after_login", None)
     return get_discord().create_session(scope=["identify", "guilds"])
 
 
@@ -223,6 +241,9 @@ def callback() -> Response:
         return make_response("OAuth state mismatch. Your session may have expired. "
                             "Please <a href='/auth/login'>log in again</a>.", 400)
     if check_access():
+        target = _safe_next(session.pop("after_login", None))
+        if target:
+            return make_response(redirect(target))
         return make_response(redirect(url_for("api.party_overview", party_name="Default")))
     return make_response("You are not authorized to access the Party Planner Dashboard.", 403)
 

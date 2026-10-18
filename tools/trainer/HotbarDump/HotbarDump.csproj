@@ -1,0 +1,26 @@
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- API 15 needs all of these switched on explicitly; the SDK references
+         Lumina/FFXIVClientStructs only when the flags are set. -->
+    <Use_Dalamud_ImGui>true</Use_Dalamud_ImGui>
+    <Use_Dalamud_Lumina>true</Use_Dalamud_Lumina>
+    <Use_Dalamud_Lumina_Excel>true</Use_Dalamud_Lumina_Excel>
+    <Use_Dalamud_FFXIVClientStructs>true</Use_Dalamud_FFXIVClientStructs>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Stamp every build so it is obvious from /xlplugins whether Dalamud is
+         actually running the DLL you just copied. -->
+    <DumpBuildStamp>$([System.DateTime]::Now.ToString('yyyyMMdd-HHmmss'))</DumpBuildStamp>
+    <Name>HotbarDump</Name>
+    <Author>maric</Author>
+    <Punchline>Hotbar dump. build $(DumpBuildStamp)</Punchline>
+    <Description>Dumps hotbar contents as JSON for offline analysis. compiled $(DumpBuildStamp)</Description>
+  </PropertyGroup>
+</Project>

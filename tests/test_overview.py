@@ -1,4 +1,4 @@
-"""Overview page (/): nav bar links, four surface cards, live counts."""
+"""Overview page (/): nav bar, the two main choices, and the other tools."""
 
 from __future__ import annotations
 
@@ -6,9 +6,10 @@ from pathlib import Path
 
 from core import questdb
 
-NAV_HREFS = ("/party/", "/quests/", "/voyages/", "/chest/")
+NAV_HREFS = ("/party/", "/trainer/", "/quests/", "/voyages/", "/chest/")
 SURFACE_IDS = (
     'id="surface-party"',
+    'id="surface-trainer"',
     'id="surface-quests"',
     'id="surface-voyages"',
     'id="surface-chest"',
@@ -76,5 +77,5 @@ def test_overview_shows_latest_route(client, qb_auth, tmp_path: Path, monkeypatc
     resp = client.get("/")
     assert resp.status_code == 200
     html = resp.get_data(as_text=True)
-    assert ">1 route</span>" in html
-    assert "current: Test Loop" in html
+    assert "1 route" in html
+    assert "Test Loop" in html

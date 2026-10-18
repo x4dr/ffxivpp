@@ -1,0 +1,30 @@
+{
+  "6141": {
+    "icon": "ui/icon/020000/020622_hr1.tex",
+    "name": "Cordial"
+  },
+  "13637": {
+    "icon": "ui/icon/020000/020601_hr1.tex",
+    "name": "Max-Potion"
+  },
+  "16911": {
+    "icon": "ui/icon/020000/020623_hr1.tex",
+    "name": "Watered Cordial"
+  },
+  "23167": {
+    "icon": "ui/icon/020000/020604_hr1.tex",
+    "name": "Super-Potion"
+  },
+  "49234": {
+    "icon": "ui/icon/020000/020710_hr1.tex",
+    "name": "Grade 4 Gemdraught of Strength"
+  },
+  "49238": {
+    "icon": "ui/icon/020000/020708_hr1.tex",
+    "name": "Grade 4 Gemdraught of Mind"
+  },
+  "49240": {
+    "icon": "ui/icon/024000/024229_hr1.tex",
+    "name": "Caramel Popcorn"
+  }
+}

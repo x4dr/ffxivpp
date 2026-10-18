@@ -1,0 +1,227 @@
+[
+ {
+  "id": 1,
+  "abbreviation": "GLA",
+  "name": "gladiator"
+ },
+ {
+  "id": 2,
+  "abbreviation": "PGL",
+  "name": "pugilist"
+ },
+ {
+  "id": 3,
+  "abbreviation": "MRD",
+  "name": "marauder"
+ },
+ {
+  "id": 4,
+  "abbreviation": "LNC",
+  "name": "lancer"
+ },
+ {
+  "id": 5,
+  "abbreviation": "ARC",
+  "name": "archer"
+ },
+ {
+  "id": 6,
+  "abbreviation": "CNJ",
+  "name": "conjurer"
+ },
+ {
+  "id": 7,
+  "abbreviation": "THM",
+  "name": "thaumaturge"
+ },
+ {
+  "id": 8,
+  "abbreviation": "CRP",
+  "name": "carpenter"
+ },
+ {
+  "id": 9,
+  "abbreviation": "BSM",
+  "name": "blacksmith"
+ },
+ {
+  "id": 10,
+  "abbreviation": "ARM",
+  "name": "armorer"
+ },
+ {
+  "id": 11,
+  "abbreviation": "GSM",
+  "name": "goldsmith"
+ },
+ {
+  "id": 12,
+  "abbreviation": "LTW",
+  "name": "leatherworker"
+ },
+ {
+  "id": 13,
+  "abbreviation": "WVR",
+  "name": "weaver"
+ },
+ {
+  "id": 14,
+  "abbreviation": "ALC",
+  "name": "alchemist"
+ },
+ {
+  "id": 15,
+  "abbreviation": "CUL",
+  "name": "culinarian"
+ },
+ {
+  "id": 16,
+  "abbreviation": "MIN",
+  "name": "miner"
+ },
+ {
+  "id": 17,
+  "abbreviation": "BTN",
+  "name": "botanist"
+ },
+ {
+  "id": 18,
+  "abbreviation": "FSH",
+  "name": "fisher"
+ },
+ {
+  "id": 19,
+  "abbreviation": "PLD",
+  "name": "paladin"
+ },
+ {
+  "id": 20,
+  "abbreviation": "MNK",
+  "name": "monk"
+ },
+ {
+  "id": 21,
+  "abbreviation": "WAR",
+  "name": "warrior"
+ },
+ {
+  "id": 22,
+  "abbreviation": "DRG",
+  "name": "dragoon"
+ },
+ {
+  "id": 23,
+  "abbreviation": "BRD",
+  "name": "bard"
+ },
+ {
+  "id": 24,
+  "abbreviation": "WHM",
+  "name": "white mage"
+ },
+ {
+  "id": 25,
+  "abbreviation": "BLM",
+  "name": "black mage"
+ },
+ {
+  "id": 26,
+  "abbreviation": "ACN",
+  "name": "arcanist"
+ },
+ {
+  "id": 27,
+  "abbreviation": "SMN",
+  "name": "summoner"
+ },
+ {
+  "id": 28,
+  "abbreviation": "SCH",
+  "name": "scholar"
+ },
+ {
+  "id": 29,
+  "abbreviation": "ROG",
+  "name": "rogue"
+ },
+ {
+  "id": 30,
+  "abbreviation": "NIN",
+  "name": "ninja"
+ },
+ {
+  "id": 31,
+  "abbreviation": "MCH",
+  "name": "machinist"
+ },
+ {
+  "id": 32,
+  "abbreviation": "DRK",
+  "name": "dark knight"
+ },
+ {
+  "id": 33,
+  "abbreviation": "AST",
+  "name": "astrologian"
+ },
+ {
+  "id": 34,
+  "abbreviation": "SAM",
+  "name": "samurai"
+ },
+ {
+  "id": 35,
+  "abbreviation": "RDM",
+  "name": "red mage"
+ },
+ {
+  "id": 36,
+  "abbreviation": "BLU",
+  "name": "blue mage"
+ },
+ {
+  "id": 37,
+  "abbreviation": "GNB",
+  "name": "gunbreaker"
+ },
+ {
+  "id": 38,
+  "abbreviation": "DNC",
+  "name": "dancer"
+ },
+ {
+  "id": 39,
+  "abbreviation": "RPR",
+  "name": "reaper"
+ },
+ {
+  "id": 40,
+  "abbreviation": "SGE",
+  "name": "sage"
+ },
+ {
+  "id": 41,
+  "abbreviation": "VPR",
+  "name": "viper"
+ },
+ {
+  "id": 42,
+  "abbreviation": "PCT",
+  "name": "pictomancer"
+ },
+ {
+  "id": 43,
+  "abbreviation": "BST",
+  "name": "beastmaster"
+ },
+ {
+  "id": 44,
+  "abbreviation": "",
+  "name": ""
+ },
+ {
+  "id": 45,
+  "abbreviation": "",
+  "name": ""
+ }
+]

@@ -1,0 +1,15 @@
+{
+  "Name": "HotbarDump",
+  "InternalName": "HotbarDump",
+  "Author": "maric",
+  "Punchline": "Dumps hotbar contents as JSON for offline analysis.",
+  "Description": "Development helper for the ffxivkeytrainer project. Dumps the node tree of hotbar addons, including each slot's icon id, plus the ClassJob and Action sheets, so the trainer's HOTBAR.DAT parser can be checked against the running game. Not intended for normal use.",
+  "ApplicableVersion": "any",
+  "DalamudApiLevel": 15,
+  "LoadPriority": 0,
+  "Tags": ["dev", "hotbar"],
+  "CategoryTags": ["other"],
+  "AcceptsFeedback": false,
+  "AcceptsPrerelease": false,
+  "RepoUrl": ""
+}

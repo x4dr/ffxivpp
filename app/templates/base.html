@@ -33,12 +33,26 @@
     .nav a { font-weight: 600; }
     .nav a.active { color: #ffffff; text-decoration: underline; text-underline-offset: 4px; }
     .nav .brand { color: #80809a; font-weight: 700; letter-spacing: 0.05em; margin-right: auto; }
+    .choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin: 1rem 0 2rem; }
+    .choice { display: flex; flex-direction: column; gap: 0.45rem; background: #1d1d2b; border: 1px solid #2c2c40; border-radius: 12px; padding: 1.4rem; color: inherit; text-decoration: none; min-height: 11rem; }
+    .choice:hover { border-color: #4a6fa8; text-decoration: none; }
+    .choice-kicker { text-transform: uppercase; letter-spacing: 0.09em; font-size: 0.72rem; color: #80809a; }
+    .choice-title { font-size: 1.55rem; font-weight: 700; color: #e8eeff; line-height: 1.15; }
+    .choice-copy { color: #a8a8c0; flex: 1; }
+    .choice-meta { font-size: 0.85rem; color: #7ab8ff; }
+    .other-head { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #80809a; margin: 0 0 0.6rem; }
+    .other { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
+    .other-card { display: block; background: #1d1d2b; border: 1px solid #2c2c40; border-radius: 10px; padding: 0.9rem 1rem; color: inherit; text-decoration: none; }
+    .other-card:hover { border-color: #4a6fa8; text-decoration: none; }
+    .other-card strong { display: block; color: #cfe3ff; margin-bottom: 0.2rem; }
+    .other-card span { color: #80809a; font-size: 0.85rem; }
   </style>
 </head>
 <body>
   <nav class="nav">
     <span class="brand"><a href="/">ffxivpp</a></span>
     <a href="/party/" {% if request.path.startswith('/party') %}class="active"{% endif %}>Party</a>
+    <a href="/trainer/" {% if request.path.startswith('/trainer') %}class="active"{% endif %}>Trainer</a>
     <a href="/quests/" {% if request.path.startswith('/quests') %}class="active"{% endif %}>Questboard</a>
     <a href="/voyages/" {% if request.path.startswith('/voyages') %}class="active"{% endif %}>Voyages</a>
     <a href="/chest/" {% if request.path.startswith('/chest') %}class="active"{% endif %}>Chest</a>

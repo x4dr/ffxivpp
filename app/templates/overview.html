@@ -2,33 +2,36 @@
 {% block title %}Home{% endblock %}
 {% block content %}
 <h1>ffxivpp</h1>
-<p class="muted">Free Company toolkit — pick a surface.</p>
+<p class="muted">Free Company toolkit. Pick a tool.</p>
 
-<section class="card" id="surface-party">
-  <h3 style="margin-top:0"><a href="/party/">Party</a></h3>
-  <p class="muted">Plan raid compositions: people pool, job constraints, and the optimizer.</p>
-  <span class="chip">{% if parties is not none %}{{ parties }} part{{ 'ies' if parties != 1 else 'y' }}{% else %}parties unavailable{% endif %}</span>
-</section>
+<div class="choices">
+  <a class="choice" id="surface-party" href="/party/">
+    <span class="choice-kicker">Raid rosters</span>
+    <span class="choice-title">Party Planning</span>
+    <span class="choice-copy">Assign jobs, set constraints, and compute valid compositions from the people pool.</span>
+    <span class="choice-meta">{% if parties is not none %}{{ parties }} part{{ 'ies' if parties != 1 else 'y' }}{% else %}parties unavailable{% endif %}</span>
+  </a>
+  <a class="choice" id="surface-trainer" href="/trainer/">
+    <span class="choice-kicker">Keybinds</span>
+    <span class="choice-title">Key Trainer</span>
+    <span class="choice-copy">Drill the abilities on your own hotbars as flashcards. Your files are read in the browser; sign in to keep your history.</span>
+    <span class="choice-meta">open to everyone</span>
+  </a>
+</div>
 
-<section class="card" id="surface-quests">
-  <h3 style="margin-top:0"><a href="/quests/">Questboard</a></h3>
-  <p class="muted">Crowd-source crafting goals — pledge materials or finished items for the chest.</p>
-  <span class="chip">{% if open_quests is not none %}{{ open_quests }} open quest{{ 's' if open_quests != 1 }}{% else %}quests unavailable{% endif %}</span>
-</section>
-
-<section class="card" id="surface-voyages">
-  <h3 style="margin-top:0"><a href="/voyages/">Voyages</a></h3>
-  <p class="muted">Submarine &amp; airship route predictions from your data pack.</p>
-  {% if latest_route is not none %}
-    <span class="chip">{{ voyage_routes }} route{{ 's' if voyage_routes != 1 }}</span>
-    <span class="chip">current: {{ latest_route }}</span>
-  {% else %}
-    <span class="chip">data pack unavailable</span>
-  {% endif %}
-</section>
-
-<section class="card" id="surface-chest">
-  <h3 style="margin-top:0"><a href="/chest/">Chest</a></h3>
-  <p class="muted">Allagan chest snapshots with turn-in suggestions for officers.</p>
-</section>
+<h2 class="other-head">Other tools</h2>
+<div class="other">
+  <a class="other-card" id="surface-quests" href="/quests/">
+    <strong>Questboard</strong>
+    <span>{% if open_quests is not none %}{{ open_quests }} open quest{{ 's' if open_quests != 1 }}{% else %}unavailable{% endif %}</span>
+  </a>
+  <a class="other-card" id="surface-voyages" href="/voyages/">
+    <strong>Voyages</strong>
+    <span>{% if latest_route is not none %}{{ voyage_routes }} route{{ 's' if voyage_routes != 1 }} · {{ latest_route }}{% else %}data pack unavailable{% endif %}</span>
+  </a>
+  <a class="other-card" id="surface-chest" href="/chest/">
+    <strong>Chest</strong>
+    <span>Allagan chest snapshots and turn-in suggestions</span>
+  </a>
+</div>
 {% endblock %}

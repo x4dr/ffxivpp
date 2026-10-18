@@ -12,3 +12,8 @@ lint_report.txt
 code_quality_report.md
 AGENTS.md
 scratch/
+
+data/trainer/
+
+data/trainer.db
+data/trainer.db-*

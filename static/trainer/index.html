@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FFXIV Keybind Trainer</title>
+<link rel="stylesheet" href="/static/trainer/style.css">
+</head>
+<body>
+<header>
+  <a class="back" href="/" title="Back to ffxivpp">&larr;</a>
+  <h1><a class="home" href="/trainer/">FFXIV Keybind Trainer</a></h1>
+  <nav>
+    <a href="/trainer/binds" class="nav-btn" data-view="layout">Binds</a>
+    <a href="/trainer/hotbars" class="nav-btn" data-view="hotbars">Hotbars</a>
+    <a href="/trainer/train" class="nav-btn" data-view="session">Train</a>
+    <a href="/trainer/score" class="nav-btn" data-view="score">Last score</a>
+  </nav>
+  <div id="account" class="account"></div>
+</header>
+
+<main>
+  <!-- ------------------------------------------------------------ binds -->
+  <section id="view-layout" class="view">
+    <div class="card" id="import-card">
+      <h2>Import</h2>
+      <p class="hint">
+        Upload the game&rsquo;s own files: <code>KEYBIND.DAT</code> says which key
+        each hotbar slot is bound to, <code>HOTBAR.DAT</code> says which ability is
+        on it. Both are needed; neither is useful alone.
+      </p>
+      <p class="hint">
+        These files are read in your browser. Nothing is uploaded unless you sign
+        in with Discord and press <em>Save to account</em>.
+      </p>
+      <div class="row">
+        <label class="filebtn">Upload KEYBIND.DAT<input type="file" id="file-input" accept=".DAT,.dat"></label>
+        <label class="filebtn">Upload HOTBAR.DAT<input type="file" id="file-input-bar" accept=".DAT,.dat"></label>
+      </div>
+      <p id="import-status" class="status"></p>
+    </div>
+
+    <div class="card" id="binds-card" hidden>
+      <h2>Binds <span class="hint" id="binds-count"></span></h2>
+      <p class="hint">
+        One row per slot, grouped by bar. Binds showing <em>unknown key</em> use an
+        FFXIV key id this importer cannot name; click <em>teach</em> and press the
+        key once to bind it for good.
+      </p>
+      <table id="binds-table">
+        <thead><tr><th>Bar</th><th>Slot</th><th>Combo</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <p id="binds-status" class="status"></p>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------- hotbars -->
+  <section id="view-hotbars" class="view" hidden>
+    <div class="card">
+      <div class="card-head">
+        <h2>Hotbars</h2>
+        <label class="job-picker">
+          <select id="job-select" aria-label="Job"></select>
+        </label>
+      </div>
+      <p class="hint" id="hotbar-status">Loading&hellip;</p>
+      <p class="hint" id="job-note"></p>
+      <p class="hint">
+        Each tile shows the key bound to that slot. Tick a bar to add it to the
+        training pool; unticked bars are not drilled.
+      </p>
+      <div id="hotbar-body"></div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------- session -->
+  <section id="view-session" class="view" hidden>
+    <div class="card session-card">
+      <div id="session-idle">
+        <h2>Ready</h2>
+        <p class="hint">Thirty seconds. You get an ability, you press its combo.</p>
+        <p id="session-error" class="status"></p>
+        <button id="btn-start">Start</button>
+      </div>
+
+      <div id="session-live" hidden>
+        <div id="hud">
+          <span id="hud-time">30.0</span><span class="unit">s</span>
+          <span class="sep"></span>
+          <span id="hud-acc">100%</span>
+          <span class="sep"></span>
+          <span id="hud-n">0</span><span class="unit">cards</span>
+        </div>
+        <div id="prompt">&hellip;</div>
+        <div id="reveal" hidden></div>
+        <div id="feedback"></div>
+        <p class="hint" id="session-hint">Press the combo. Esc quits.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ----------------------------------------------------------- score -->
+  <section id="view-score" class="view" hidden>
+    <div class="card">
+      <h2>Scorecard</h2>
+      <div id="score-body"></div>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="/static/trainer/js/app.js"></script>
+</body>
+</html>
