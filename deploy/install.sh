@@ -104,6 +104,15 @@ for tmpl in "$REPO_DIR"/deploy/*.service; do
 done
 shopt -u nullglob
 
+shopt -s nullglob
+_TIMERS=()
+for tmpl in "$REPO_DIR"/deploy/*.timer; do
+  name="$(basename "$tmpl" .timer)"
+  write_file "$tmpl" "/etc/systemd/system/${name}.timer" 644
+  _TIMERS+=("$name")
+done
+shopt -u nullglob
+
 # --- nginx ---
 NGINX_DIR="/etc/nginx"
 [[ -d "$NGINX_DIR/sites-enabled" ]] || NGINX_DIR="$NGINX_DIR/conf.d"
@@ -153,6 +162,9 @@ echo ""
 # --- enable & start ---
 systemctl daemon-reload
 systemctl enable --now "${_SERVICES[@]}"
+if [ ${#_TIMERS[@]} -gt 0 ]; then
+  systemctl enable --now "${_TIMERS[@]}"
+fi
 echo "Services:   enabled & started"
 
 systemctl reload-or-restart nginx

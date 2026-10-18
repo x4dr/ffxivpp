@@ -10,7 +10,9 @@ Two processes, one SQLite database (`party.db`, SQLAlchemy 2.0):
   Slash commands, persistent home-channel embeds, background `scraper_loop`
   draining the `scraper_tasks` table (Lodestone character scraping with cooldowns).
 
-Deploy: `deploy/install.sh` + systemd units + nginx; GitHub Actions workflow deploys.
+Deploy: `deploy/install.sh` + systemd units + nginx. The host is behind NAT, so
+`ffxiv-deploy.timer` pulls `origin/main` every minute; the GitHub Actions
+workflow runs the tests and then polls `/deploy/version` to verify the rollout.
 Package management via `uv`; QA gates: ruff (line 100), mypy strict (`app/` only),
 pytest (5 s timeout policy).
 

@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "=== Pulling latest ==="
-git pull
+git pull --ff-only
 
 echo "=== Installing deps ==="
 uv sync

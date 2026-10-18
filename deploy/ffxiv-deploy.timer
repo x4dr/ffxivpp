@@ -1,0 +1,10 @@
+[Unit]
+Description=Check for a new FF14 Party Planner commit every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+Unit=ffxiv-deploy.service
+
+[Install]
+WantedBy=timers.target

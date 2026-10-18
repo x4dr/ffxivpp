@@ -21,8 +21,18 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger deploy webhook
+      - name: Wait for the server to deploy this commit
         run: |
-          curl -sf -X POST "${{ secrets.DEPLOY_URL }}" \
-            -H "X-Deploy-Secret: ${{ secrets.DEPLOY_SECRET }}" \
-            -H "Accept: application/json"
+          # The host is behind NAT, so it pulls main on a systemd timer.
+          # This job only verifies the rollout through a public endpoint.
+          for attempt in $(seq 1 60); do
+            commit=$(curl -sf https://ffxiv.nossinet.cc/deploy/version | jq -r '.commit // empty' || true)
+            if [ "$commit" = "$GITHUB_SHA" ]; then
+              echo "deployed $commit"
+              exit 0
+            fi
+            echo "waiting for $GITHUB_SHA (server has ${commit:-unknown})"
+            sleep 5
+          done
+          echo "server did not reach $GITHUB_SHA"
+          exit 1

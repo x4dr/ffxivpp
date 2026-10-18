@@ -1,0 +1,12 @@
+[Unit]
+Description=FF14 Party Planner deploy from origin/main
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=YOUR_USER
+Group=YOUR_USER
+WorkingDirectory=/path/to/ffxivpp
+ExecStart=/path/to/ffxivpp/deploy/poll-deploy.sh
+TimeoutStartSec=300

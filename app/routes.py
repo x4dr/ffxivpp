@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from collections.abc import Generator
+from functools import lru_cache
 from pathlib import Path
 
 from flask import (
@@ -52,6 +54,27 @@ from core.voyages import VoyageDataError, load_pack
 
 bp = Blueprint("api", __name__)
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+
+@lru_cache(maxsize=1)
+def _git_commit() -> str:
+    """The commit this process is running.
+
+    The deploy workflow polls /deploy/version to know the pull-based deploy
+    actually reached the server. A commit id is not a secret.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=STATIC_DIR.parent,
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
 
 
 @bp.route("/api/me")
@@ -385,6 +408,12 @@ def party_overview(party_name: str) -> Response:
 @bp.route("/party/")
 def party_index() -> Response:
     return make_response(redirect(url_for("api.party_overview", party_name="Default")))
+
+
+@bp.route("/deploy/version")
+def deploy_version() -> Response:
+    """The running commit, used by the deploy workflow to verify a rollout."""
+    return jsonify({"commit": _git_commit()})
 
 
 @bp.route("/")
