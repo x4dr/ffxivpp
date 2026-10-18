@@ -19,8 +19,12 @@ NODE = shutil.which("node")
 
 @pytest.mark.skipif(NODE is None, reason="node is not installed")
 def test_javascript_suite() -> None:
+    # Node 22's test runner does not accept a directory argument, and older
+    # Node treats .js as CommonJS. The explicit file list plus the root
+    # package.json ("type": "module") keeps this working across versions.
+    files = sorted(str(path) for path in (ROOT / "tests" / "js").glob("*.test.js"))
     proc = subprocess.run(
-        [NODE, "--test", "tests/js/"],
+        [NODE, "--test", *files],
         cwd=ROOT,
         capture_output=True,
         text=True,
