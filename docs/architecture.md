@@ -12,7 +12,8 @@ Two processes, one SQLite database (`party.db`, SQLAlchemy 2.0):
 
 Deploy: `deploy/install.sh` + systemd units + nginx. The host is behind NAT, so
 `ffxiv-deploy.timer` pulls `origin/main` every minute; the GitHub Actions
-workflow runs the tests and then polls `/deploy/version` to verify the rollout.
+workflow runs the tests. `/deploy/version` reports the commit the app is
+running, for a manual check or a future rollout probe.
 Package management via `uv`; QA gates: ruff (line 100), mypy strict (`app/` only),
 pytest (5 s timeout policy).
 
