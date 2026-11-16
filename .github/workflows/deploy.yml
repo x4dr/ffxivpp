@@ -6,7 +6,9 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Playwright 1.60 has no build for ubuntu 26.04, which ubuntu-latest now
+    # resolves to. Pin until Playwright supports it.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
