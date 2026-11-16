@@ -265,6 +265,35 @@ class TestSchedulePosting:
         assert [answer.text for answer in poll.answers] == ["Friday", "Saturday"]
 
 
+class TestScheduleEmbed:
+    def _entry(self) -> dict[str, Any]:
+        return {
+            "id": 3,
+            "name": "Weekly raid",
+            "preset": "raid",
+            "weekday_local": 4,
+            "hour_local": 18,
+            "minute_local": 0,
+            "timezone": "Europe/Berlin",
+            "channel_id": "1001",
+        }
+
+    def test_lists_day_time_zone_and_channel(self) -> None:
+        from bot.polls import schedule_embed
+
+        description = schedule_embed([self._entry()]).description or ""
+        assert "#3 Weekly raid" in description
+        assert "Friday 18:00 Europe/Berlin" in description
+        assert "<#1001>" in description
+
+    def test_remove_view_starts_with_delete_disabled(self) -> None:
+        from bot.polls import ScheduleRemoveView
+
+        view = ScheduleRemoveView([self._entry()], "g1")
+        assert view.delete_button.disabled is True
+        assert view.selected_id is None
+
+
 class TestPollBuilders:
     def test_build_poll_carries_answers_and_flags(self) -> None:
         from bot.polls import build_poll

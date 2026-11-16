@@ -96,6 +96,99 @@ async def post_raid_pair(
 # --- command registration --------------------------------------------------
 
 
+SCHEDULE_VIEW_TIMEOUT = 180
+
+
+def schedule_embed(entries: list[dict[str, Any]]) -> discord.Embed:
+    """Embed listing schedules, shared by list and remove."""
+    lines = []
+    for entry in entries[:20]:
+        day = pollstore.WEEKDAYS[int(entry["weekday_local"])]
+        clock = f"{int(entry['hour_local']):02d}:{int(entry['minute_local']):02d}"
+        lines.append(
+            f"**#{entry['id']} {entry['name']}** ({entry['preset']})\n"
+            f"{day} {clock} {entry['timezone']} in <#{entry['channel_id']}>"
+        )
+    if len(entries) > 20:
+        lines.append(f"...and {len(entries) - 20} more")
+    return discord.Embed(
+        title="Poll schedules",
+        description="\n".join(lines) or "No schedules.",
+        color=discord.Color.blurple(),
+    )
+
+
+class SchedulePickSelect(discord.ui.Select["ScheduleRemoveView"]):
+    def __init__(self, view: ScheduleRemoveView) -> None:
+        options = [
+            discord.SelectOption(
+                label=f"#{entry['id']} {entry['name']}"[:100],
+                description=(
+                    f"{pollstore.WEEKDAYS[int(entry['weekday_local'])]} "
+                    f"{int(entry['hour_local']):02d}:{int(entry['minute_local']):02d} "
+                    f"{entry['timezone']}"
+                )[:100],
+                value=str(entry["id"]),
+            )
+            for entry in view.entries[:25]
+        ]
+        super().__init__(placeholder="Choose a schedule to delete", options=options)
+        self._parent_view = view
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        self._parent_view.selected_id = int(self.values[0])
+        self._parent_view.delete_button.disabled = False
+        self._parent_view.delete_button.label = f"Delete #{self.values[0]}"
+        await interaction.response.edit_message(view=self._parent_view)
+
+
+class DeleteScheduleButton(discord.ui.Button["ScheduleRemoveView"]):
+    def __init__(self, view: ScheduleRemoveView) -> None:
+        super().__init__(label="Delete", style=discord.ButtonStyle.danger, disabled=True)
+        self._parent_view = view
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        await self._parent_view.delete_selected(interaction)
+
+
+class ScheduleRemoveView(discord.ui.View):
+    """Schedule list with a picker and a delete button, ephemeral to the caller."""
+
+    def __init__(self, entries: list[dict[str, Any]], guild_id: str) -> None:
+        super().__init__(timeout=SCHEDULE_VIEW_TIMEOUT)
+        self.entries = entries
+        self.guild_id = guild_id
+        self.selected_id: int | None = None
+        self.add_item(SchedulePickSelect(self))
+        self.delete_button = DeleteScheduleButton(self)
+        self.add_item(self.delete_button)
+
+    async def delete_selected(self, interaction: discord.Interaction) -> None:
+        if self.selected_id is None:
+            return
+        schedule_id = self.selected_id
+        if not pollstore.delete_schedule(schedule_id, self.guild_id):
+            await interaction.response.edit_message(
+                content=f"Schedule #{schedule_id} was already gone.",
+                embed=None,
+                view=None,
+            )
+            return
+        remaining = pollstore.list_schedules(self.guild_id)
+        if not remaining:
+            await interaction.response.edit_message(
+                content=f"Schedule #{schedule_id} removed. No schedules left.",
+                embed=None,
+                view=None,
+            )
+            return
+        await interaction.response.edit_message(
+            content=f"Schedule #{schedule_id} removed.",
+            embed=schedule_embed(remaining),
+            view=ScheduleRemoveView(remaining, self.guild_id),
+        )
+
+
 def register_poll_commands(client: PollClient) -> None:
     tree = client.tree
     group = app_commands.Group(name="poll", description="Post and schedule Discord polls")
@@ -334,35 +427,27 @@ def register_poll_commands(client: PollClient) -> None:
                 ephemeral=True,
             )
             return
-        lines = []
-        for entry in entries:
-            day = pollstore.WEEKDAYS[int(entry["weekday_local"])]
-            clock = f"{int(entry['hour_local']):02d}:{int(entry['minute_local']):02d}"
-            lines.append(
-                f"#{entry['id']} **{entry['name']}** - {entry['preset']}, "
-                f"{day} {clock} {entry['timezone']} in <#{entry['channel_id']}>"
-            )
-        await interaction.response.send_message("\n".join(lines), ephemeral=True)
+        await interaction.response.send_message(embed=schedule_embed(entries), ephemeral=True)
 
     @group.command(
         name="schedule-remove", description="Delete a weekly poll schedule (administrator)"
     )
     @app_commands.checks.has_permissions(administrator=True)
-    @app_commands.describe(schedule_id="Schedule number from /poll schedule-list")
-    async def schedule_remove(
-        interaction: discord.Interaction, schedule_id: int
-    ) -> None:
+    async def schedule_remove(interaction: discord.Interaction) -> None:
         guild_id = await _guild_id(interaction)
         if guild_id is None:
             return
-        if pollstore.delete_schedule(schedule_id, guild_id):
+        entries = pollstore.list_schedules(guild_id)
+        if not entries:
             await interaction.response.send_message(
-                f"Schedule #{schedule_id} removed.", ephemeral=True
+                "No poll schedules to remove.", ephemeral=True
             )
-        else:
-            await interaction.response.send_message(
-                f"No schedule #{schedule_id} in this server.", ephemeral=True
-            )
+            return
+        await interaction.response.send_message(
+            embed=schedule_embed(entries),
+            view=ScheduleRemoveView(entries, guild_id),
+            ephemeral=True,
+        )
 
     tree.add_command(group)
 
