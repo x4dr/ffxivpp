@@ -206,7 +206,7 @@ def register_poll_commands(client: PollClient) -> None:
         question="Poll question",
         options="Answers separated by | or new lines (2 to 10)",
         channel="Channel to post in",
-        duration_hours="How long the poll stays open (1 to 768 hours)",
+        duration_hours="Open this many hours: 24 = 1 day, 168 = 1 week, 768 = 32 days max",
         multi="Allow more than one answer",
     )
     async def poll_create(
@@ -248,7 +248,7 @@ def register_poll_commands(client: PollClient) -> None:
         week_offset="0 asks about the upcoming Mon-Sun week, 1 the week after",
         start_hour="First time slot, local hour (default 16 = 4 pm)",
         slots="How many hourly time slots to offer",
-        duration_hours="How long each poll stays open",
+        duration_hours="Open this many hours: 24 = 1 day, 168 = 1 week, 768 = 32 days max",
         multi_days="Allow more than one day to be picked",
     )
     async def poll_raid(
@@ -305,7 +305,7 @@ def register_poll_commands(client: PollClient) -> None:
         question="Poll question",
         options="Answers separated by | or new lines (2 to 10)",
         timezone="IANA zone, default is the bot's local zone",
-        duration_hours="How long the poll stays open",
+        duration_hours="Open this many hours: 24 = 1 day, 168 = 1 week, 768 = 32 days max",
         multi="Allow more than one answer",
     )
     async def schedule_add(
@@ -367,7 +367,7 @@ def register_poll_commands(client: PollClient) -> None:
         start_hour="First time slot, local hour (default 16 = 4 pm)",
         slots="How many hourly time slots to offer",
         week_offset="0 asks about the upcoming Mon-Sun week, 1 the week after",
-        duration_hours="How long each poll stays open",
+        duration_hours="Open this many hours: 24 = 1 day, 168 = 1 week, 768 = 32 days max",
         multi_days="Allow more than one day to be picked",
     )
     async def schedule_raid(

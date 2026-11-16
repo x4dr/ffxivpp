@@ -228,7 +228,10 @@ def _validate_schedule_fields(weekday_local: int, hour_local: int, minute_local:
 
 def validate_duration(duration_hours: int) -> None:
     if not 1 <= duration_hours <= MAX_DURATION_HOURS:
-        raise ValueError(f"duration_hours must be between 1 and {MAX_DURATION_HOURS}")
+        raise ValueError(
+            f"duration_hours must be between 1 and {MAX_DURATION_HOURS} "
+            "(168 = 1 week, 768 = 32 days)"
+        )
 
 
 def validate_raid_options(time_start_hour: int, time_slots: int, week_offset: int) -> None:
