@@ -76,6 +76,7 @@ def _clean_db() -> None:
         PersonModel,
         ScraperTask,
     )
+    from core.pollstore import PollSchedule
     from core.questdb import (
         ChestSnapshot,
         ItemCatalog,
@@ -85,6 +86,7 @@ def _clean_db() -> None:
         ReminderOptIn,
     )
     tables = [
+        PollSchedule,
         QuestPledge,
         QuestEvent,
         ReminderOptIn,

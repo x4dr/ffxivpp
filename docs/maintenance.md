@@ -9,6 +9,11 @@ Lodestone scraping, polls. Bug fixes only, no new features.
 Event tracking / raid setups and a possible CalDAV integration are documented
 as **future areas** — no design yet, will get their own docs when wanted.
 
+Exception (2026-11-16): recurring raid availability polls added as the first
+raid-setup feature from that future-areas list (`core/pollstore.py`,
+`bot/polls.py`, `/poll` command group). Nothing else on the frozen surface
+changed.
+
 ## TODO.md dispositions (maric: "if it's review just do it, otherwise judge usefulness")
 
 | Item | Disposition |

@@ -91,11 +91,14 @@ class PartyBot(discord.Client):
         await self.tree.sync()
 
         self.loop.create_task(self.scraper_loop())
+        from bot.polls import poll_loop, register_poll_commands
         from bot.questboard import register_quest_commands, reminder_loop
 
         register_quest_commands(self)
-        await self.tree.sync()  # pick up /quest-* commands added above
+        register_poll_commands(self)
+        await self.tree.sync()  # pick up /quest-* and /poll-* commands added above
         self.loop.create_task(reminder_loop(self))
+        self.loop.create_task(poll_loop(self))
 
     async def scraper_loop(self) -> None:
         """Background loop to refresh character data with optimized DB locking."""

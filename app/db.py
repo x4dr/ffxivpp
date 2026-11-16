@@ -154,6 +154,11 @@ def _init_lock() -> Iterator[None]:
 
 
 def init_db() -> None:
+    # Model modules register their tables on Base.metadata at import time.
+    # The server never imports the bot, so poll schedules are registered here
+    # explicitly; otherwise create_all would build a schema without them.
+    import core.pollstore  # noqa: F401
+
     with _init_lock():
         Base.metadata.create_all(engine)
         _ensure_quest_voyage_columns()
