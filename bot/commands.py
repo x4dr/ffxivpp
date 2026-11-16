@@ -79,7 +79,10 @@ def parse_jobs(s: str) -> list[str]:
 
 class PartyBot(discord.Client):
     def __init__(self) -> None:
-        super().__init__(intents=discord.Intents())
+        # Guilds is not a privileged intent and is needed for the cache:
+        # slash command channel options resolve through Guild.get_channel, and
+        # interaction.channel is None without a cached guild.
+        super().__init__(intents=discord.Intents(guilds=True))
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self) -> None:

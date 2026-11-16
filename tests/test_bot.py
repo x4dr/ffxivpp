@@ -86,3 +86,13 @@ def test_build_job_list_some():
     assert "PLD" in result
     assert "WHM" in result
     assert "PLD/WHM" in result
+
+
+def test_client_enables_guilds_intent():
+    # Channel options and interaction.channel resolve from the guild cache,
+    # which needs the guilds intent; empty intents made every channel option
+    # fail with "Failed to convert <name> to TextChannel".
+    from bot.commands import PartyBot
+
+    client = PartyBot()
+    assert client.intents.guilds is True
